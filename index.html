@@ -850,6 +850,7 @@ html, body {
       printStyle.textContent =
         '@media print {' +
         '  @page { size: landscape; margin: 0; }' +
+        '  *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }' +
         '  html, body { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }' +
         '  #pp-deck { display: block !important; overflow: visible !important; width: auto !important; height: auto !important; }' +
         '  #pp-deck .slide { width: 100vw !important; height: 100vh !important; page-break-after: always !important; break-after: page !important; overflow: hidden !important; flex-shrink: 0; box-sizing: border-box !important; }' +
@@ -859,6 +860,7 @@ html, body {
       // Regular HTML — expand to full height
       printStyle.textContent =
         '@media print {' +
+        '  *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }' +
         '  html, body { height: auto !important; overflow: visible !important; }' +
         '}';
     }
