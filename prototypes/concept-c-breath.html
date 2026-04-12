@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept C — Breath</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: #fdfcfa;
+  color: #2c2c2c;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* === Canvas: full screen, nothing else === */
+.canvas {
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.canvas-inner {
+  width: 100%;
+  max-width: 680px;
+  padding: 100px 32px 160px;
+}
+
+/* === Content === */
+.canvas-inner h1 {
+  font-size: 44px;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+  letter-spacing: -0.8px;
+  line-height: 1.15;
+}
+
+.canvas-inner p {
+  font-size: 17px;
+  line-height: 1.85;
+  color: #777;
+  margin-bottom: 24px;
+  font-weight: 300;
+}
+
+.canvas-inner .section {
+  margin: 40px 0;
+  padding: 36px 0;
+  border-top: 1px solid rgba(0,0,0,0.04);
+}
+
+.canvas-inner .section h2 {
+  font-size: 16px;
+  font-weight: 400;
+  color: #444;
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+
+.canvas-inner .section p {
+  font-size: 15px;
+  color: #999;
+}
+
+.canvas-inner svg.demo-svg { margin: 40px 0; display: block; }
+
+/* === Selection === */
+.el-hover {
+  background: rgba(0, 51, 255, 0.02);
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.el-selected {
+  box-shadow: -4px 0 0 0 rgba(0, 51, 255, 0.35);
+  padding-left: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === Bottom bar === */
+.bottombar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.03);
+  z-index: 100;
+}
+
+.bb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bb:hover { background: rgba(0,0,0,0.04); color: #333; }
+.bb:disabled { opacity: 0.2; cursor: default; }
+.bb:disabled:hover { background: transparent; }
+
+.bb svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.bb-divider { width: 1px; height: 22px; background: rgba(0,0,0,0.06); margin: 0 4px; }
+
+/* Color circles in bottom bar */
+.bb-color {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s;
+  margin: 0 2px;
+}
+
+.bb-color:hover { transform: scale(1.2); }
+.bc-black { background: #000; }
+.bc-white { background: #fff; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.12); }
+.bc-blue { background: #0033FF; }
+
+/* === Tooltip (appears above selected element) === */
+.tooltip {
+  position: fixed;
+  padding: 6px 14px;
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.2s;
+}
+
+.tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* === Empty state === */
+.empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 20px;
+}
+
+.empty-state.show { display: flex; }
+
+.empty-ring {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.empty-ring::after {
+  content: '';
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0,0,0,0.08);
+}
+
+.empty-ring svg {
+  width: 24px;
+  height: 24px;
+  stroke: #ccc;
+  fill: none;
+  stroke-width: 1.2;
+  z-index: 1;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 300;
+  color: #bbb;
+}
+
+.empty-sub {
+  font-size: 13px;
+  color: #ddd;
+  font-weight: 300;
+}
+
+.empty-btn {
+  margin-top: 12px;
+  padding: 12px 36px;
+  border: none;
+  border-radius: 12px;
+  background: #0033FF;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.empty-btn:hover { background: #0029cc; box-shadow: 0 4px 16px rgba(0,51,255,0.2); }
+
+/* === Inline edit modal === */
+.edit-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(253, 252, 250, 0.85);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.edit-modal.show { display: flex; }
+
+.edit-card {
+  width: 480px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 48px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  padding: 32px;
+}
+
+.edit-card-title {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #bbb;
+  margin-bottom: 16px;
+}
+
+.edit-card textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  background: #fafaf8;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 300;
+  color: #333;
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.edit-card textarea:focus { border-color: rgba(0, 51, 255, 0.3); }
+
+.edit-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-cancel, .edit-save {
+  padding: 8px 24px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.edit-cancel {
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #fff;
+  color: #888;
+}
+
+.edit-cancel:hover { border-color: rgba(0,0,0,0.15); color: #555; }
+
+.edit-save {
+  border: none;
+  background: #0033FF;
+  color: #fff;
+}
+
+.edit-save:hover { background: #0029cc; }
+</style>
+</head>
+<body>
+
+<!-- Empty state -->
+<div class="empty-state show" id="empty">
+  <div class="empty-ring">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </div>
+  <p class="empty-text">Begin with a file</p>
+  <p class="empty-sub">Drop it anywhere, or</p>
+  <button class="empty-btn" onclick="document.getElementById('empty').classList.remove('show'); document.getElementById('content').style.display='flex'; document.getElementById('bottombar').style.display='flex'; document.getElementById('tip').classList.add('visible');">Open</button>
+</div>
+
+<!-- Canvas -->
+<div class="canvas" id="content" style="display:none;">
+  <div class="canvas-inner">
+    <h1 class="el-selected" id="demo-title">The Art of Simplicity</h1>
+    <p>Good design is as little design as possible. Less, but better — because it concentrates on the essential aspects, and the products are not burdened with non-essentials.</p>
+
+    <div class="section">
+      <h2>Principles</h2>
+      <p>Innovative, useful, aesthetic, understandable, unobtrusive, honest, long-lasting, thorough, environmentally friendly.</p>
+    </div>
+
+    <div class="section">
+      <h2>Materials</h2>
+      <p>Every element serves a purpose. Every surface tells a story. Nothing is arbitrary, and nothing remains that does not serve a purpose.</p>
+    </div>
+
+    <svg class="demo-svg" width="300" height="40" viewBox="0 0 300 40">
+      <line x1="0" y1="20" x2="300" y2="20" stroke="#0033FF" stroke-width="0.5" opacity="0.2"/>
+      <circle cx="50" cy="20" r="8" fill="#0033FF" opacity="0.1"/>
+      <circle cx="100" cy="20" r="8" fill="#0033FF" opacity="0.2"/>
+      <circle cx="150" cy="20" r="8" fill="#0033FF" opacity="0.35"/>
+      <circle cx="200" cy="20" r="8" fill="#0033FF" opacity="0.5"/>
+      <circle cx="250" cy="20" r="8" fill="#0033FF" opacity="0.7"/>
+    </svg>
+
+    <p>Back to the essential. Back to purity.</p>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div class="bottombar" id="bottombar" style="display:none;">
+  <button class="bb" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
+  <button class="bb" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
+  <div class="bb-divider"></div>
+  <button class="bb" disabled title="Undo"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
+  <button class="bb" disabled title="Redo"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg></button>
+  <div class="bb-divider"></div>
+  <div class="bb-color bc-black" title="Black"></div>
+  <div class="bb-color bc-white" title="White"></div>
+  <div class="bb-color bc-blue" title="Blue"></div>
+  <div class="bb-divider"></div>
+  <button class="bb" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+  <button class="bb" title="Remove"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+  <div class="bb-divider"></div>
+  <button class="bb" title="Theme"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip visible" id="tip" style="top: 72px; left: 50%; transform: translateX(-50%);">Double-click to edit content</div>
+
+<!-- Edit modal -->
+<div class="edit-modal" id="editModal">
+  <div class="edit-card">
+    <div class="edit-card-title">Edit content</div>
+    <textarea rows="4">The Art of Simplicity</textarea>
+    <div class="edit-card-actions">
+      <button class="edit-cancel" onclick="document.getElementById('editModal').classList.remove('show');">Cancel</button>
+      <button class="edit-save" onclick="document.getElementById('editModal').classList.remove('show');">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('demo-title').addEventListener('dblclick', function() {
+  document.getElementById('editModal').classList.add('show');
+  document.getElementById('tip').classList.remove('visible');
+});
+
+// Auto-hide tooltip
+setTimeout(function() {
+  var tip = document.getElementById('tip');
+  if (tip) tip.classList.remove('visible');
+}, 4000);
+</script>
+</body>
+</html>

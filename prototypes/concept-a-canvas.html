@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept A — Canvas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: #fafaf8;
+  color: #2c2c2c;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* === Top bar: appears on hover === */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: rgba(250, 250, 248, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  transform: translateY(-100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+}
+
+body:hover .topbar,
+.topbar:hover {
+  transform: translateY(0);
+}
+
+.topbar-left, .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 300;
+  color: #999;
+  letter-spacing: 0.5px;
+}
+
+.tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tb:hover { background: rgba(0,0,0,0.05); color: #333; }
+.tb:disabled { opacity: 0.25; cursor: default; }
+.tb:disabled:hover { background: transparent; }
+
+.tb svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(0,0,0,0.08);
+  margin: 0 8px;
+}
+
+/* === Canvas === */
+.canvas {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+  overflow-y: auto;
+}
+
+.canvas-inner {
+  width: 100%;
+  max-width: 800px;
+  padding: 60px 48px 120px;
+}
+
+/* === Sample content === */
+.canvas-inner h1 {
+  font-size: 42px;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.canvas-inner p {
+  font-size: 17px;
+  line-height: 1.75;
+  color: #555;
+  margin-bottom: 20px;
+  font-weight: 300;
+}
+
+.canvas-inner .card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin: 24px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.canvas-inner .card h2 {
+  font-size: 20px;
+  font-weight: 400;
+  color: #2c2c2c;
+  margin-bottom: 8px;
+}
+
+.canvas-inner .card p {
+  font-size: 15px;
+  color: #777;
+  margin-bottom: 0;
+}
+
+.canvas-inner svg.demo-svg {
+  margin: 24px 0;
+}
+
+/* === Selection state === */
+.selected-element {
+  outline: 2px solid rgba(0, 51, 255, 0.35);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* === Context toolbar (appears near selected element) === */
+.context-bar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  z-index: 50;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.context-bar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ctx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ctx-btn:hover { background: rgba(0,0,0,0.05); color: #222; }
+
+.ctx-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.ctx-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(0,0,0,0.08);
+  margin: 0 2px;
+}
+
+/* Color dots */
+.color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.color-dot:hover { transform: scale(1.15); }
+
+.dot-black { background: #000; }
+.dot-white { background: #fff; }
+.dot-blue { background: #0033FF; }
+
+/* === Empty state === */
+.empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #bbb;
+  gap: 16px;
+}
+
+.empty-state.show { display: flex; }
+
+.empty-state .circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(0,0,0,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state .circle svg {
+  width: 28px;
+  height: 28px;
+  stroke: #ccc;
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.empty-state p {
+  font-size: 15px;
+  font-weight: 300;
+  color: #bbb;
+}
+
+.empty-state .open-btn {
+  margin-top: 8px;
+  padding: 10px 28px;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.empty-state .open-btn:hover {
+  border-color: rgba(0,0,0,0.2);
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* === Inline edit overlay === */
+.inline-edit-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.02);
+  z-index: 40;
+  display: none;
+}
+
+/* === Text editing hint === */
+.edit-hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.3px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.edit-hint.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="tb" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
+    <button class="tb" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
+    <div class="divider"></div>
+    <button class="tb" disabled title="Undo"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
+    <button class="tb" disabled title="Redo"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg></button>
+  </div>
+  <div class="topbar-center">chisel</div>
+  <div class="topbar-right">
+    <button class="tb" title="Theme"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
+  </div>
+</div>
+
+<!-- Empty state -->
+<div class="empty-state show" id="empty">
+  <div class="circle">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </div>
+  <p>Drop a file here to begin</p>
+  <button class="open-btn" onclick="document.getElementById('empty').classList.remove('show'); document.getElementById('content').style.display='block'; document.getElementById('ctx').classList.add('visible');">
+    Browse files
+  </button>
+</div>
+
+<!-- Canvas content (demo) -->
+<div class="canvas" id="content" style="display:none;">
+  <div class="canvas-inner">
+    <h1 class="selected-element" id="demo-title">The Art of Simplicity</h1>
+    <p>Good design is as little design as possible. Less, but better — because it concentrates on the essential aspects, and the products are not burdened with non-essentials.</p>
+
+    <div class="card">
+      <h2>Principles</h2>
+      <p>Innovative, useful, aesthetic, understandable, unobtrusive, honest, long-lasting, thorough, environmentally friendly.</p>
+    </div>
+
+    <div class="card">
+      <h2>Materials</h2>
+      <p>Every element serves a purpose. Every surface tells a story. Nothing is arbitrary.</p>
+    </div>
+
+    <svg class="demo-svg" width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="50" fill="#0033FF" opacity="0.12" stroke="none"/>
+      <circle cx="60" cy="60" r="30" fill="#0033FF" opacity="0.25" stroke="none"/>
+      <circle cx="60" cy="60" r="12" fill="#0033FF" opacity="0.6" stroke="none"/>
+    </svg>
+
+    <p>Back to the essential. Back to purity.</p>
+  </div>
+</div>
+
+<!-- Context toolbar (floating near selection) -->
+<div class="context-bar" id="ctx" style="top: 80px; left: 50%; transform: translateX(-50%) translateY(0);">
+  <button class="ctx-btn" title="Edit text"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+  <div class="ctx-divider"></div>
+  <div class="color-dot dot-black" title="Black"></div>
+  <div class="color-dot dot-white" title="White"></div>
+  <div class="color-dot dot-blue" title="Blue"></div>
+  <div class="ctx-divider"></div>
+  <button class="ctx-btn" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+  <button class="ctx-btn" title="Remove"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+</div>
+
+<!-- Hint -->
+<div class="edit-hint" id="hint">Double-click to edit text</div>
+
+<script>
+// Show hint after content loads
+document.querySelector('.open-btn').addEventListener('click', function() {
+  setTimeout(function() {
+    document.getElementById('hint').classList.add('visible');
+    setTimeout(function() {
+      document.getElementById('hint').classList.remove('visible');
+    }, 3000);
+  }, 500);
+});
+</script>
+</body>
+</html>
