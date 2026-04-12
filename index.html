@@ -136,26 +136,41 @@ html, body {
 }
 .empty-btn:hover { opacity: 0.85; box-shadow: 0 4px 16px rgba(0,51,255,0.2); }
 
-/* ========== Bottom bar ========== */
-.bottombar {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+/* ========== Toolbar ========== */
+.toolbar {
+  position: fixed;
   display: flex; align-items: center; gap: 2px; padding: 6px;
   background: var(--bar-bg); backdrop-filter: blur(16px);
   border: 1px solid var(--bar-border); border-radius: 14px;
   box-shadow: var(--bar-shadow); z-index: 100;
   user-select: none;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
 }
-.bottombar.hidden { display: none; }
-.bottombar.dragging { opacity: 0.85; }
+.toolbar.hidden { display: none; }
 
-/* Drag handle */
-.bar-grip {
-  display: flex; align-items: center; justify-content: center;
-  width: 18px; height: 30px; cursor: grab; color: var(--text-muted);
-  flex-shrink: 0; margin-right: 2px;
+/* Bottom mode (default) */
+.toolbar.mode-bottom {
+  bottom: 24px; left: 50%; transform: translateX(-50%);
+  flex-direction: row;
 }
-.bar-grip:active { cursor: grabbing; }
-.bar-grip svg { width: 10px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+/* Left mode */
+.toolbar.mode-left {
+  left: 16px; top: 50%; transform: translateY(-50%);
+  flex-direction: column;
+}
+
+.toolbar.mode-left .bb-divider {
+  width: 22px; height: 1px; margin: 4px 0;
+}
+
+.toolbar.mode-left .font-size-group {
+  flex-direction: column;
+}
+
+.toolbar.mode-left .ctx-group.show {
+  flex-direction: column;
+}
 
 .bb {
   display: inline-flex; align-items: center; justify-content: center;
@@ -247,9 +262,10 @@ html, body {
 </div>
 
 <!-- Bottom bar -->
-<div class="bottombar hidden" id="bottombar">
-  <!-- Drag handle -->
-  <div class="bar-grip" id="bar-grip"><svg viewBox="0 0 10 16"><circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/><circle cx="3" cy="8" r="1.2"/><circle cx="7" cy="8" r="1.2"/><circle cx="3" cy="14" r="1.2"/><circle cx="7" cy="14" r="1.2"/></svg></div>
+<div class="toolbar mode-bottom hidden" id="toolbar">
+  <!-- Layout toggle -->
+  <button class="bb" id="btn-layout" title="Toggle layout"><svg viewBox="0 0 24 24" id="layout-icon"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/></svg></button>
+  <div class="bb-divider"></div>
   <!-- File ops -->
   <button class="bb" id="btn-open" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
   <button class="bb" id="btn-save" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
@@ -352,7 +368,7 @@ html, body {
   var fileInput = document.getElementById('file-input');
   var iframe = document.getElementById('canvas-iframe');
   var emptyState = document.getElementById('empty-state');
-  var bottombar = document.getElementById('bottombar');
+  var toolbar = document.getElementById('toolbar');
   var ctxTools = document.getElementById('ctx-tools');
   var fontSizeDisplay = document.getElementById('font-size-display');
   var tooltipEl = document.getElementById('tooltip');
@@ -757,7 +773,7 @@ html, body {
     setupDragDrop(doc);
     fileLoaded = true;
     emptyState.classList.add('hidden');
-    bottombar.classList.remove('hidden');
+    toolbar.classList.remove('hidden');
     undoStack.length = 0; redoStack.length = 0; updateUndoRedo();
     deselect();
     showTooltip(T[lang].hintSelect, 3500);
@@ -879,42 +895,30 @@ html, body {
     }
   });
 
-  // ========== Draggable toolbar ==========
-  (function() {
-    var bar = document.getElementById('bottombar');
-    var grip = document.getElementById('bar-grip');
-    var dragging = false, startX, startY, barX, barY;
+  // ========== Toolbar layout toggle ==========
+  var barMode = localStorage.getItem('chisel-bar-mode') || 'bottom';
 
-    grip.addEventListener('mousedown', function(e) {
-      e.preventDefault();
-      dragging = true;
-      bar.classList.add('dragging');
-      var rect = bar.getBoundingClientRect();
-      // Switch from centered positioning to absolute x/y
-      bar.style.transform = 'none';
-      bar.style.left = rect.left + 'px';
-      bar.style.top = rect.top + 'px';
-      bar.style.bottom = 'auto';
-      startX = e.clientX; startY = e.clientY;
-      barX = rect.left; barY = rect.top;
-    });
+  function setBarMode(mode) {
+    barMode = mode;
+    localStorage.setItem('chisel-bar-mode', mode);
+    toolbar.classList.remove('mode-bottom', 'mode-left');
+    toolbar.classList.add('mode-' + mode);
+    // Update icon
+    var icon = document.getElementById('layout-icon');
+    if (mode === 'left') {
+      // Show "go to bottom" icon
+      icon.innerHTML = '<rect x="3" y="17" width="18" height="4" rx="1"/><rect x="3" y="3" width="4" height="10" rx="1"/>';
+    } else {
+      // Show "go to left" icon
+      icon.innerHTML = '<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/>';
+    }
+  }
 
-    document.addEventListener('mousemove', function(e) {
-      if (!dragging) return;
-      var dx = e.clientX - startX, dy = e.clientY - startY;
-      var nx = barX + dx, ny = barY + dy;
-      // Clamp to viewport
-      var bw = bar.offsetWidth, bh = bar.offsetHeight;
-      nx = Math.max(0, Math.min(window.innerWidth - bw, nx));
-      ny = Math.max(0, Math.min(window.innerHeight - bh, ny));
-      bar.style.left = nx + 'px';
-      bar.style.top = ny + 'px';
-    });
+  document.getElementById('btn-layout').addEventListener('click', function() {
+    setBarMode(barMode === 'bottom' ? 'left' : 'bottom');
+  });
 
-    document.addEventListener('mouseup', function() {
-      if (dragging) { dragging = false; bar.classList.remove('dragging'); }
-    });
-  })();
+  setBarMode(barMode);
 
   // ========== Init ==========
   setTheme(theme); setLang(lang);
