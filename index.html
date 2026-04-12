@@ -447,12 +447,6 @@ html, body {
     };
   }
 
-  function cmdResize(el, attr, oldV, newV) {
-    return {
-      execute: function() { el.setAttribute(attr, newV); },
-      undo: function() { el.setAttribute(attr, oldV); }
-    };
-  }
 
   // ========== Helpers ==========
   function rgbToHex(rgb) {
@@ -495,9 +489,9 @@ html, body {
     if (isTextLike(selectedElement)) {
       fontSizeDisplay.textContent = getFontSize(selectedElement);
     } else {
-      // Show width for containers/shapes
-      var r = selectedElement.getBoundingClientRect();
-      fontSizeDisplay.textContent = Math.round(r.width);
+      // Show scale percentage
+      var s = getCurrentScale(selectedElement);
+      fontSizeDisplay.textContent = Math.round(s * 100) + '%';
     }
   }
 
@@ -596,46 +590,26 @@ html, body {
   // ========== Scale element (via +/- buttons) ==========
   var SCALE_STEP = 0.05; // 5% per click
 
-  function scaleElement(el, direction) {
-    // direction: 1 = bigger, -1 = smaller
-    var factor = 1 + SCALE_STEP * direction;
-    var tag = el.tagName.toLowerCase();
-    var svgEl = isSvg(el);
+  function getCurrentScale(el) {
+    var t = el.style.transform || '';
+    var m = t.match(/scale\(([\d.]+)\)/);
+    return m ? parseFloat(m[1]) : 1;
+  }
 
-    if (svgEl) {
-      // SVG: scale attributes
-      if (tag === 'circle') {
-        var oldR = parseFloat(el.getAttribute('r')) || 50;
-        var newR = Math.max(5, Math.round(oldR * factor));
-        exec(cmdResize(el, 'r', oldR, newR));
-      } else if (tag === 'ellipse') {
-        var oldRx = parseFloat(el.getAttribute('rx')) || 50;
-        var oldRy = parseFloat(el.getAttribute('ry')) || 50;
-        var newRx = Math.max(5, Math.round(oldRx * factor));
-        var newRy = Math.max(5, Math.round(oldRy * factor));
-        exec({ execute: function() { el.setAttribute('rx', newRx); el.setAttribute('ry', newRy); },
-               undo: function() { el.setAttribute('rx', oldRx); el.setAttribute('ry', oldRy); } });
-      } else {
-        var rect = el.getBoundingClientRect();
-        var oldW = parseFloat(el.getAttribute('width')) || rect.width;
-        var oldH = parseFloat(el.getAttribute('height')) || rect.height;
-        var newW = Math.max(10, Math.round(oldW * factor));
-        var newH = Math.max(10, Math.round(oldH * factor));
-        exec({ execute: function() { el.setAttribute('width', newW); el.setAttribute('height', newH); },
-               undo: function() { el.setAttribute('width', oldW); el.setAttribute('height', oldH); } });
-      }
-    } else {
-      // HTML: scale CSS width/height proportionally
-      var cs = getWin().getComputedStyle(el);
-      var curW = parseFloat(cs.width);
-      var curH = parseFloat(cs.height);
-      var oldStyleW = el.style.width || '';
-      var oldStyleH = el.style.height || '';
-      var nW = Math.max(20, Math.round(curW * factor)) + 'px';
-      var nH = Math.max(20, Math.round(curH * factor)) + 'px';
-      exec({ execute: function() { el.style.width = nW; el.style.height = nH; },
-             undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; } });
-    }
+  function scaleElement(el, direction) {
+    // Use transform: scale() — doesn't break layout or overflow parent
+    var oldScale = getCurrentScale(el);
+    var newScale = Math.max(0.1, +(oldScale + SCALE_STEP * direction).toFixed(2));
+    var oldTransform = el.style.transform || '';
+    var newTransform = oldTransform.replace(/scale\([\d.]+\)/, '').trim();
+    newTransform = (newTransform ? newTransform + ' ' : '') + 'scale(' + newScale + ')';
+    // If was scale(1), just set; if removing scale, clean up
+    if (newScale === 1) newTransform = oldTransform.replace(/\s*scale\([\d.]+\)/, '').trim();
+
+    exec({
+      execute: function() { el.style.transform = newTransform; },
+      undo: function() { el.style.transform = oldTransform; }
+    });
   }
 
   // ========== Drag to reorder ==========
