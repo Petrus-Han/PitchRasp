@@ -726,26 +726,32 @@ html, body {
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
           resizing = false;
-          // Build undo
+          // Single undo command for the entire resize operation
           if (svgEl) {
-            if (tag === 'circle') { var nr = parseFloat(el.getAttribute('r')); if (nr !== oldSvgW) exec(cmdResize(el, 'r', oldSvgW, nr)); }
-            else if (tag === 'ellipse') {
-              var nrx = parseFloat(el.getAttribute('rx')), nry = parseFloat(el.getAttribute('ry'));
-              if (nrx !== oldSvgW) exec(cmdResize(el, 'rx', oldSvgW, nrx));
-              if (nry !== (oldSvgH || oldSvgW)) exec(cmdResize(el, 'ry', oldSvgH || oldSvgW, nry));
-            } else {
-              var nw2 = parseFloat(el.getAttribute('width')), nh2 = parseFloat(el.getAttribute('height'));
-              if (nw2 !== oldSvgW) exec(cmdResize(el, 'width', oldSvgW, nw2));
-              if (nh2 !== oldSvgH) exec(cmdResize(el, 'height', oldSvgH, nh2));
+            var snapshot = {};
+            if (tag === 'circle') { snapshot.r = parseFloat(el.getAttribute('r')); }
+            else if (tag === 'ellipse') { snapshot.rx = parseFloat(el.getAttribute('rx')); snapshot.ry = parseFloat(el.getAttribute('ry')); }
+            else { snapshot.width = parseFloat(el.getAttribute('width')); snapshot.height = parseFloat(el.getAttribute('height')); }
+            var oldSnap = tag === 'circle' ? {r: oldSvgW} : tag === 'ellipse' ? {rx: oldSvgW, ry: oldSvgH || oldSvgW} : {width: oldSvgW, height: oldSvgH};
+            var changed = Object.keys(snapshot).some(function(k) { return snapshot[k] !== oldSnap[k]; });
+            if (changed) {
+              undoStack.push({
+                execute: function() { Object.keys(snapshot).forEach(function(k) { el.setAttribute(k, snapshot[k]); }); },
+                undo: function() { Object.keys(oldSnap).forEach(function(k) { el.setAttribute(k, oldSnap[k]); }); }
+              });
+              redoStack.length = 0;
+              updateUndoRedo();
             }
           } else {
             var fW = el.style.width, fH = el.style.height;
             var fML = el.style.marginLeft, fMT = el.style.marginTop;
             if (fW !== oldStyleW || fH !== oldStyleH || fML !== oldStyleML || fMT !== oldStyleMT) {
-              exec({
+              undoStack.push({
                 execute: function() { el.style.width = fW; el.style.height = fH; el.style.marginLeft = fML; el.style.marginTop = fMT; },
                 undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; el.style.marginLeft = oldStyleML; el.style.marginTop = oldStyleMT; }
               });
+              redoStack.length = 0;
+              updateUndoRedo();
             }
           }
         }
@@ -810,7 +816,8 @@ html, body {
     style.setAttribute('data-chisel', 'true');
     style.textContent =
       '*:not(html):not(head):not(body):not(script):not(style):not(link):not(meta) { cursor: pointer !important; transition: outline 0.15s; }' +
-      '[contenteditable="true"] { cursor: text !important; outline: 2px solid rgba(0,51,255,0.4) !important; outline-offset: 3px; }';
+      '[contenteditable="true"] { cursor: text !important; outline: 2px solid rgba(0,51,255,0.4) !important; outline-offset: 3px; }' +
+      '*, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
     doc.head.appendChild(style);
   }
 
@@ -933,6 +940,19 @@ html, body {
     doc.addEventListener('scroll', function() {
       if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
         updateSelectionFrame(selectedElement); if (resizeHandles.length) positionHandles(selectedElement); else showResizeHandles(selectedElement);
+      }
+    });
+
+    // ESC inside iframe — deselect/exit edit
+    doc.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (editingText) exitTextEdit();
+        deselect();
+      }
+      // Forward Delete/Backspace to parent handler when not editing text
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !editingText && selectedElement) {
+        e.preventDefault();
+        deleteSelected();
       }
     });
   }
