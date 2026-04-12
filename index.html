@@ -143,8 +143,19 @@ html, body {
   background: var(--bar-bg); backdrop-filter: blur(16px);
   border: 1px solid var(--bar-border); border-radius: 14px;
   box-shadow: var(--bar-shadow); z-index: 100;
+  user-select: none;
 }
 .bottombar.hidden { display: none; }
+.bottombar.dragging { opacity: 0.85; }
+
+/* Drag handle */
+.bar-grip {
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 30px; cursor: grab; color: var(--text-muted);
+  flex-shrink: 0; margin-right: 2px;
+}
+.bar-grip:active { cursor: grabbing; }
+.bar-grip svg { width: 10px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
 
 .bb {
   display: inline-flex; align-items: center; justify-content: center;
@@ -237,7 +248,9 @@ html, body {
 
 <!-- Bottom bar -->
 <div class="bottombar hidden" id="bottombar">
-  <!-- Always visible: file ops -->
+  <!-- Drag handle -->
+  <div class="bar-grip" id="bar-grip"><svg viewBox="0 0 10 16"><circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/><circle cx="3" cy="8" r="1.2"/><circle cx="7" cy="8" r="1.2"/><circle cx="3" cy="14" r="1.2"/><circle cx="7" cy="14" r="1.2"/></svg></div>
+  <!-- File ops -->
   <button class="bb" id="btn-open" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
   <button class="bb" id="btn-save" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
   <button class="bb" id="btn-pdf" title="Export PDF"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="15 2 15 7 20 7"/><path d="M8 15l2 2 4-4"/></svg></button>
@@ -282,12 +295,12 @@ html, body {
     en: {
       emptyTitle: 'Begin with a file', emptyHint: 'Drop it anywhere, or',
       open: 'Open', installHint: 'Use offline as an app', install: 'Install',
-      hintSelect: 'Click to select \u00b7 Double-click text to edit',
+      hintSelect: 'Click to select and edit',
     },
     zh: {
       emptyTitle: '\u5F00\u59CB\u7F16\u8F91', emptyHint: '\u62D6\u653E\u6587\u4EF6\u5230\u6B64\u5904\uFF0C\u6216',
       open: '\u6253\u5F00', installHint: '\u79BB\u7EBF\u4F7F\u7528', install: '\u5B89\u88C5',
-      hintSelect: '\u70B9\u51FB\u9009\u62E9 \u00b7 \u53CC\u51FB\u7F16\u8F91\u6587\u5B57',
+      hintSelect: '\u70B9\u51FB\u9009\u62E9\u5E76\u7F16\u8F91',
     }
   };
   var lang = localStorage.getItem('chisel-lang') || 'en';
@@ -447,18 +460,28 @@ html, body {
   }
 
   // ========== Selection ==========
+  // Contrasting selection: double outline (white inner + dark outer) visible on any bg
+  function applySelectionStyle(el) {
+    el.style.outline = '2px dashed rgba(0,0,0,0.5)';
+    el.style.outlineOffset = '3px';
+    el.style.boxShadow = '0 0 0 5px rgba(255,255,255,0.6), 0 0 0 7px rgba(0,0,0,0.3)';
+  }
+
+  function clearSelectionStyle(el) {
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+    el.style.boxShadow = '';
+  }
+
   function selectEl(el) {
     if (!el || el.nodeType !== 1 || PROTECTED.has(el.tagName)) return;
     if (editingText) exitTextEdit();
-    if (selectedElement && selectedElement !== el) clearSelection();
+    if (selectedElement && selectedElement !== el) clearSelectionStyle(selectedElement);
     selectedElement = el;
 
-    // Visual: outline
-    el.style.outline = '2px solid ' + getComputedStyle(document.documentElement).getPropertyValue('--selection-border').trim();
-    el.style.outlineOffset = '3px';
-    el.style.borderRadius = '2px';
+    applySelectionStyle(el);
 
-    // Show context tools
+    // Show context tools (hide color for complex SVGs)
     ctxTools.classList.add('show');
     refreshCtx();
 
@@ -467,17 +490,9 @@ html, body {
     if (isSvgShape(el)) showResizeHandles(el);
   }
 
-  function clearSelection() {
-    if (selectedElement) {
-      selectedElement.style.outline = '';
-      selectedElement.style.outlineOffset = '';
-      selectedElement.style.borderRadius = '';
-    }
-  }
-
   function deselect() {
     if (editingText) exitTextEdit();
-    clearSelection();
+    if (selectedElement) clearSelectionStyle(selectedElement);
     clearResizeHandles();
     selectedElement = null;
     ctxTools.classList.remove('show');
@@ -775,7 +790,7 @@ html, body {
 
   // ========== Iframe listeners ==========
   function setupIframeListeners(doc) {
-    // Single click — select
+    // Single click — select, and enter text edit for non-SVG
     doc.addEventListener('click', function(e) {
       e.preventDefault(); e.stopPropagation();
       var t = e.target;
@@ -784,19 +799,14 @@ html, body {
 
       // If already editing this element, let the cursor work naturally
       if (editingText && t === selectedElement) return;
-      // If clicking a child of the currently editing element, let it be
       if (editingText && selectedElement && selectedElement.contains(t)) return;
 
-      selectEl(t);
-    }, true);
-
-    // Double click — enter text edit
-    doc.addEventListener('dblclick', function(e) {
-      e.preventDefault(); e.stopPropagation();
-      var t = e.target;
-      if (t === doc.documentElement || t === doc.body) return;
-      if (PROTECTED.has(t.tagName)) return;
-      enterTextEdit(t);
+      // For non-SVG: single click enters text edit directly
+      if (!isSvg(t)) {
+        enterTextEdit(t);
+      } else {
+        selectEl(t);
+      }
     }, true);
 
     // Track scroll for resize handles
@@ -868,6 +878,43 @@ html, body {
       clearResizeHandles(); showResizeHandles(selectedElement);
     }
   });
+
+  // ========== Draggable toolbar ==========
+  (function() {
+    var bar = document.getElementById('bottombar');
+    var grip = document.getElementById('bar-grip');
+    var dragging = false, startX, startY, barX, barY;
+
+    grip.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      dragging = true;
+      bar.classList.add('dragging');
+      var rect = bar.getBoundingClientRect();
+      // Switch from centered positioning to absolute x/y
+      bar.style.transform = 'none';
+      bar.style.left = rect.left + 'px';
+      bar.style.top = rect.top + 'px';
+      bar.style.bottom = 'auto';
+      startX = e.clientX; startY = e.clientY;
+      barX = rect.left; barY = rect.top;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      var nx = barX + dx, ny = barY + dy;
+      // Clamp to viewport
+      var bw = bar.offsetWidth, bh = bar.offsetHeight;
+      nx = Math.max(0, Math.min(window.innerWidth - bw, nx));
+      ny = Math.max(0, Math.min(window.innerHeight - bh, ny));
+      bar.style.left = nx + 'px';
+      bar.style.top = ny + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (dragging) { dragging = false; bar.classList.remove('dragging'); }
+    });
+  })();
 
   // ========== Init ==========
   setTheme(theme); setLang(lang);
