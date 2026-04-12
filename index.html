@@ -956,7 +956,7 @@ html, body {
       propClassRow.style.display = 'none';
     }
 
-    const isSvgElement = selectedElement instanceof SVGElement;
+    const isSvgElement = selectedElement.namespaceURI === 'http://www.w3.org/2000/svg';
     const hasDirectText = hasOwnText(selectedElement);
 
     if (hasDirectText && !isSvgElement) {
