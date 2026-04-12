@@ -501,9 +501,9 @@ html, body {
     ctxTools.classList.add('show');
     refreshCtx();
 
-    // Show resize handles for SVG shape elements
+    // Show resize handles for any element (not body/html)
     clearResizeHandles();
-    if (isSvgShape(el)) showResizeHandles(el);
+    if (!PROTECTED.has(el.tagName)) showResizeHandles(el);
   }
 
   function deselect() {
@@ -599,15 +599,9 @@ html, body {
     exec(cmdCopy(selectedElement));
   }
 
-  // ========== SVG Shape Resize ==========
+  // ========== Element Resize ==========
   var resizeHandles = [];
   var resizing = false;
-
-  function isSvgShape(el) {
-    if (!isSvg(el)) return false;
-    var tag = el.tagName.toLowerCase();
-    return ['rect','circle','ellipse','image','svg','g'].indexOf(tag) >= 0;
-  }
 
   function clearResizeHandles() {
     resizeHandles.forEach(function(h) { if (h.parentNode) h.parentNode.removeChild(h); });
@@ -615,11 +609,9 @@ html, body {
   }
 
   function showResizeHandles(el) {
-    var doc = getDoc();
     var rect = el.getBoundingClientRect();
     var iframeRect = iframe.getBoundingClientRect();
 
-    // Create SE (bottom-right) handle
     var handle = document.createElement('div');
     handle.className = 'resize-handle se';
     handle.style.position = 'fixed';
@@ -628,68 +620,66 @@ html, body {
     document.body.appendChild(handle);
     resizeHandles.push(handle);
 
-    var startX, startY, startW, startH, elTag;
-
     handle.addEventListener('mousedown', function(e) {
       e.preventDefault(); e.stopPropagation();
       resizing = true;
-      startX = e.clientX; startY = e.clientY;
-      elTag = el.tagName.toLowerCase();
+      var startX = e.clientX, startY = e.clientY;
+      var tag = el.tagName.toLowerCase();
+      var svgEl = isSvg(el);
+      var startRect = el.getBoundingClientRect();
+      var oldW, oldH, oldStyleW, oldStyleH;
 
-      if (elTag === 'svg') {
-        startW = parseFloat(el.getAttribute('width')) || rect.width;
-        startH = parseFloat(el.getAttribute('height')) || rect.height;
-      } else if (elTag === 'rect' || elTag === 'image') {
-        startW = parseFloat(el.getAttribute('width')) || rect.width;
-        startH = parseFloat(el.getAttribute('height')) || rect.height;
-      } else if (elTag === 'circle') {
-        startW = parseFloat(el.getAttribute('r')) || 50;
-      } else if (elTag === 'ellipse') {
-        startW = parseFloat(el.getAttribute('rx')) || 50;
-        startH = parseFloat(el.getAttribute('ry')) || 50;
+      if (svgEl) {
+        if (tag === 'circle') { oldW = parseFloat(el.getAttribute('r')) || 50; }
+        else if (tag === 'ellipse') { oldW = parseFloat(el.getAttribute('rx')) || 50; oldH = parseFloat(el.getAttribute('ry')) || 50; }
+        else { oldW = parseFloat(el.getAttribute('width')) || startRect.width; oldH = parseFloat(el.getAttribute('height')) || startRect.height; }
+      } else {
+        oldStyleW = el.style.width || '';
+        oldStyleH = el.style.height || '';
+        oldW = startRect.width;
+        oldH = startRect.height;
       }
 
-      var oldW = startW, oldH = startH;
-
       function onMove(ev) {
-        var dx = ev.clientX - startX;
-        var dy = ev.clientY - startY;
-
-        if (elTag === 'svg' || elTag === 'rect' || elTag === 'image') {
-          el.setAttribute('width', Math.max(10, startW + dx));
-          el.setAttribute('height', Math.max(10, startH + dy));
-        } else if (elTag === 'circle') {
-          el.setAttribute('r', Math.max(5, startW + Math.max(dx, dy) / 2));
-        } else if (elTag === 'ellipse') {
-          el.setAttribute('rx', Math.max(5, startW + dx / 2));
-          el.setAttribute('ry', Math.max(5, startH + dy / 2));
+        var dx = ev.clientX - startX, dy = ev.clientY - startY;
+        if (svgEl) {
+          if (tag === 'circle') { el.setAttribute('r', Math.max(5, oldW + Math.max(dx, dy) / 2)); }
+          else if (tag === 'ellipse') { el.setAttribute('rx', Math.max(5, oldW + dx / 2)); el.setAttribute('ry', Math.max(5, oldH + dy / 2)); }
+          else { el.setAttribute('width', Math.max(10, oldW + dx)); el.setAttribute('height', Math.max(10, oldH + dy)); }
+        } else {
+          el.style.width = Math.max(20, oldW + dx) + 'px';
+          el.style.height = Math.max(20, oldH + dy) + 'px';
         }
-
-        // Reposition handle
-        var newRect = el.getBoundingClientRect();
-        handle.style.left = (iframeRect.left + newRect.right - 4) + 'px';
-        handle.style.top = (iframeRect.top + newRect.bottom - 4) + 'px';
+        var nr = el.getBoundingClientRect();
+        handle.style.left = (iframeRect.left + nr.right - 4) + 'px';
+        handle.style.top = (iframeRect.top + nr.bottom - 4) + 'px';
+        applySelectionStyle(el);
       }
 
       function onUp() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         resizing = false;
-
-        // Create undo commands for the resize
-        if (elTag === 'svg' || elTag === 'rect' || elTag === 'image') {
-          var nw = parseFloat(el.getAttribute('width'));
-          var nh = parseFloat(el.getAttribute('height'));
-          if (nw !== oldW) exec(cmdResize(el, 'width', oldW, nw));
-          if (nh !== oldH) exec(cmdResize(el, 'height', oldH, nh));
-        } else if (elTag === 'circle') {
-          var nr = parseFloat(el.getAttribute('r'));
-          if (nr !== oldW) exec(cmdResize(el, 'r', oldW, nr));
-        } else if (elTag === 'ellipse') {
-          var nrx = parseFloat(el.getAttribute('rx'));
-          var nry = parseFloat(el.getAttribute('ry'));
-          if (nrx !== oldW) exec(cmdResize(el, 'rx', oldW, nrx));
-          if (nry !== oldH) exec(cmdResize(el, 'ry', oldH, nry));
+        // Undo commands
+        if (svgEl) {
+          if (tag === 'circle') { var nr = parseFloat(el.getAttribute('r')); if (nr !== oldW) exec(cmdResize(el, 'r', oldW, nr)); }
+          else if (tag === 'ellipse') {
+            var nrx = parseFloat(el.getAttribute('rx')), nry = parseFloat(el.getAttribute('ry'));
+            if (nrx !== oldW) exec(cmdResize(el, 'rx', oldW, nrx));
+            if (nry !== oldH) exec(cmdResize(el, 'ry', oldH, nry));
+          } else {
+            var nw = parseFloat(el.getAttribute('width')), nh = parseFloat(el.getAttribute('height'));
+            if (nw !== oldW) exec(cmdResize(el, 'width', oldW, nw));
+            if (nh !== oldH) exec(cmdResize(el, 'height', oldH, nh));
+          }
+        } else {
+          var newW = el.style.width, newH = el.style.height;
+          if (newW !== oldStyleW || newH !== oldStyleH) {
+            exec({
+              execute: function() { el.style.width = newW; el.style.height = newH; },
+              undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; }
+            });
+          }
         }
       }
 
@@ -844,7 +834,7 @@ html, body {
 
     // Track scroll for resize handles
     doc.addEventListener('scroll', function() {
-      if (selectedElement && isSvgShape(selectedElement)) {
+      if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
         clearResizeHandles(); showResizeHandles(selectedElement);
       }
     });
@@ -907,7 +897,7 @@ html, body {
 
   // Window resize — update resize handles
   window.addEventListener('resize', function() {
-    if (selectedElement && isSvgShape(selectedElement)) {
+    if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
       clearResizeHandles(); showResizeHandles(selectedElement);
     }
   });
