@@ -224,13 +224,6 @@ html, body {
 /* ========== File input ========== */
 #file-input { display: none; }
 
-/* ========== Selection frame ========== */
-.selection-frame {
-  position: fixed; z-index: 49; pointer-events: none;
-  border: 1.5px solid var(--accent);
-  border-radius: 2px;
-  opacity: 0.4;
-}
 
 /* ========== Scrollbar ========== */
 ::-webkit-scrollbar { width: 4px; }
@@ -474,34 +467,16 @@ html, body {
   }
 
   // ========== Selection ==========
-  // Selection: frame line drawn via a positioned div (no inline styles on content)
-  var selectionFrame = null;
-
-  function updateSelectionFrame(el) {
-    if (!selectionFrame) {
-      selectionFrame = document.createElement('div');
-      selectionFrame.className = 'selection-frame';
-      document.body.appendChild(selectionFrame);
-    }
-    var rect = el.getBoundingClientRect();
-    var ir = iframe.getBoundingClientRect();
-    selectionFrame.style.left = (ir.left + rect.left - 3) + 'px';
-    selectionFrame.style.top = (ir.top + rect.top - 3) + 'px';
-    selectionFrame.style.width = (rect.width + 6) + 'px';
-    selectionFrame.style.height = (rect.height + 6) + 'px';
-    selectionFrame.style.display = 'block';
-  }
-
-  function clearSelectionFrame() {
-    if (selectionFrame) selectionFrame.style.display = 'none';
+  // Selection: PP-style classes (hover=dashed, selected=solid)
+  function clearSelectionClass() {
+    if (selectedElement) selectedElement.classList.remove('pr-selected');
   }
 
   function selectEl(el) {
     if (!el || el.nodeType !== 1 || PROTECTED.has(el.tagName)) return;
     if (editingText) exitTextEdit();
     selectedElement = el;
-
-    updateSelectionFrame(el);
+    el.classList.add('pr-selected');
 
     ctxTools.classList.add('show');
     refreshCtx();
@@ -509,7 +484,7 @@ html, body {
 
   function deselect() {
     if (editingText) exitTextEdit();
-    clearSelectionFrame();
+    clearSelectionClass();
     selectedElement = null;
     ctxTools.classList.remove('show');
     fontSizeDisplay.textContent = '--';
@@ -661,7 +636,6 @@ html, body {
       exec({ execute: function() { el.style.width = nW; el.style.height = nH; },
              undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; } });
     }
-    updateSelectionFrame(el);
   }
 
   // ========== Drag to reorder ==========
@@ -717,8 +691,10 @@ html, body {
     var style = doc.createElement('style');
     style.setAttribute('data-chisel', 'true');
     style.textContent =
-      '*:not(html):not(head):not(body):not(script):not(style):not(link):not(meta) { cursor: pointer !important; transition: outline 0.15s; }' +
-      '[contenteditable="true"] { cursor: text !important; outline: 2px solid rgba(0,51,255,0.4) !important; outline-offset: 3px; }' +
+      '*:not(html):not(head):not(body):not(script):not(style):not(link):not(meta) { cursor: pointer !important; }' +
+      '.pr-hover { outline: 2px dashed rgba(0,100,255,0.5) !important; outline-offset: 2px; }' +
+      '.pr-selected { outline: 2px solid #0033FF !important; outline-offset: 2px; }' +
+      '[contenteditable="true"] { cursor: text !important; outline: 2px solid #0066FF !important; outline-offset: 2px; }' +
       '*, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
     doc.head.appendChild(style);
   }
@@ -753,6 +729,8 @@ html, body {
     clone.querySelectorAll('[data-eid]').forEach(function(el) { el.removeAttribute('data-eid'); });
     clone.querySelectorAll('[draggable]').forEach(function(el) { el.removeAttribute('draggable'); });
     clone.querySelectorAll('[contenteditable]').forEach(function(el) { el.removeAttribute('contenteditable'); });
+    clone.querySelectorAll('.pr-hover').forEach(function(el) { el.classList.remove('pr-hover'); });
+    clone.querySelectorAll('.pr-selected').forEach(function(el) { el.classList.remove('pr-selected'); });
     clone.querySelectorAll('style[data-chisel]').forEach(function(el) { el.remove(); });
     clone.querySelectorAll('div[style*="z-index:99999"]').forEach(function(el) { el.remove(); });
     clone.querySelectorAll('[style]').forEach(function(el) {
@@ -838,12 +816,16 @@ html, body {
       }
     }, true);
 
-    // Track scroll for resize handles
-    doc.addEventListener('scroll', function() {
-      if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-        updateSelectionFrame(selectedElement);
+    // Hover: dashed outline
+    doc.addEventListener('mouseover', function(e) {
+      var t = e.target;
+      if (t && t.nodeType === 1 && !PROTECTED.has(t.tagName) && t !== selectedElement) {
+        t.classList.add('pr-hover');
       }
-    });
+    }, true);
+    doc.addEventListener('mouseout', function(e) {
+      if (e.target && e.target.classList) e.target.classList.remove('pr-hover');
+    }, true);
 
     // ESC inside iframe — deselect/exit edit
     doc.addEventListener('keydown', function(e) {
@@ -914,12 +896,6 @@ html, body {
       openFile(e.dataTransfer.files[0]);
   });
 
-  // Window resize — update resize handles
-  window.addEventListener('resize', function() {
-    if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-      updateSelectionFrame(selectedElement);
-    }
-  });
 
   // ========== Toolbar layout toggle ==========
   var barMode = localStorage.getItem('pr-bar-mode') || 'bottom';
