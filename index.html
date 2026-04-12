@@ -464,11 +464,15 @@ html, body {
   // Selection: PP-style classes (hover=dashed, selected=solid)
   function clearSelectionClass() {
     if (selectedElement) selectedElement.classList.remove('pr-selected');
+    // Safety: clear any stray selections
+    getDoc().querySelectorAll('.pr-selected').forEach(function(e) { e.classList.remove('pr-selected'); });
   }
 
   function selectEl(el) {
     if (!el || el.nodeType !== 1 || PROTECTED.has(el.tagName)) return;
     if (editingText) exitTextEdit();
+    // Clear previous selection first
+    clearSelectionClass();
     selectedElement = el;
     el.classList.add('pr-selected');
 
