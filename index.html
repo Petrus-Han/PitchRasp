@@ -258,12 +258,12 @@ html, body {
   <button class="bb" id="btn-layout" title="Toggle layout"><svg viewBox="0 0 24 24" id="layout-icon"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/></svg></button>
   <div class="bb-divider"></div>
   <!-- File ops -->
-  <button class="bb" id="btn-open" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
-  <button class="bb" id="btn-save" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
+  <button class="bb" id="btn-open" title="Open file"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
+  <button class="bb" id="btn-save" title="Save (Ctrl+S)"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
   <button class="bb" id="btn-pdf" title="Export PDF" style="width:auto;padding:0 10px;font-size:11px;font-weight:600;letter-spacing:0.5px;color:var(--text-secondary);">PDF</button>
   <div class="bb-divider"></div>
-  <button class="bb" id="btn-undo" disabled><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
-  <button class="bb" id="btn-redo" disabled><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg></button>
+  <button class="bb" id="btn-undo" disabled title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
+  <button class="bb" id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg></button>
 
   <!-- Context: shown when element selected -->
   <div class="ctx-group" id="ctx-tools">
@@ -275,14 +275,14 @@ html, body {
     <div class="bb-divider"></div>
     <!-- Font size -->
     <div class="font-size-group">
-      <button class="bb sm" id="btn-font-down"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="bb sm" id="btn-font-down" title="Smaller"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <span class="font-size-display" id="font-size-display">--</span>
-      <button class="bb sm" id="btn-font-up"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="bb sm" id="btn-font-up" title="Larger"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
     <div class="bb-divider"></div>
     <!-- Copy / Delete -->
-    <button class="bb" id="btn-copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-    <button class="bb" id="btn-delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+    <button class="bb" id="btn-copy" title="Duplicate (Ctrl+D)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+    <button class="bb" id="btn-delete" title="Delete (Del)"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
   </div>
 
   <div class="bb-divider"></div>
@@ -800,18 +800,27 @@ html, body {
       if (e.target && e.target.classList) e.target.classList.remove('pr-hover');
     }, true);
 
-    // ESC inside iframe — deselect/exit edit
+    // Keyboard inside iframe
     doc.addEventListener('keydown', function(e) {
+      // When editing text, stop ALL key events from reaching slide navigation
+      if (editingText) {
+        e.stopPropagation();
+        // Only let ESC through to exit edit mode
+        if (e.key === 'Escape') {
+          exitTextEdit();
+          deselect();
+        }
+        return;
+      }
+      // Not editing:
       if (e.key === 'Escape') {
-        if (editingText) exitTextEdit();
         deselect();
       }
-      // Forward Delete/Backspace to parent handler when not editing text
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !editingText && selectedElement) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement) {
         e.preventDefault();
         deleteSelected();
       }
-    });
+    }, true);
   }
 
   // ========== Tooltip ==========
