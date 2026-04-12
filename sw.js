@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chisel-v1';
+const CACHE_NAME = 'pitchrasp-v1';
 const ASSETS = [
   './',
   './index.html',

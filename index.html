@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chisel</title>
+<title>PitchRasp</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0033FF">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -324,9 +324,9 @@ html, body {
       hintSelect: '\u70B9\u51FB\u9009\u62E9\u5E76\u7F16\u8F91',
     }
   };
-  var lang = localStorage.getItem('chisel-lang') || 'en';
+  var lang = localStorage.getItem('pr-lang') || 'en';
   function setLang(l) {
-    lang = l; localStorage.setItem('chisel-lang', l);
+    lang = l; localStorage.setItem('pr-lang', l);
     document.getElementById('lang-label').textContent = l.toUpperCase();
     document.querySelectorAll('[data-i18n]').forEach(function(el) {
       var k = el.getAttribute('data-i18n'); if (T[l][k]) el.textContent = T[l][k];
@@ -334,9 +334,9 @@ html, body {
   }
 
   // ========== Theme ==========
-  var theme = localStorage.getItem('chisel-theme') || 'light';
+  var theme = localStorage.getItem('pr-theme') || 'light';
   function setTheme(t) {
-    theme = t; localStorage.setItem('chisel-theme', t);
+    theme = t; localStorage.setItem('pr-theme', t);
     document.documentElement.setAttribute('data-theme', t);
     var icon = document.getElementById('theme-icon');
     icon.innerHTML = t === 'dark'
@@ -348,7 +348,7 @@ html, body {
   var deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault(); deferredPrompt = e;
-    if (!localStorage.getItem('chisel-install-dismissed'))
+    if (!localStorage.getItem('pr-install-dismissed'))
       document.getElementById('install-banner').classList.add('show');
   });
   document.getElementById('install-btn').addEventListener('click', function() {
@@ -358,7 +358,7 @@ html, body {
   });
   document.getElementById('install-dismiss').addEventListener('click', function() {
     document.getElementById('install-banner').classList.remove('show');
-    localStorage.setItem('chisel-install-dismissed', '1');
+    localStorage.setItem('pr-install-dismissed', '1');
   });
 
   // ========== State ==========
@@ -949,11 +949,11 @@ html, body {
   });
 
   // ========== Toolbar layout toggle ==========
-  var barMode = localStorage.getItem('chisel-bar-mode') || 'bottom';
+  var barMode = localStorage.getItem('pr-bar-mode') || 'bottom';
 
   function setBarMode(mode) {
     barMode = mode;
-    localStorage.setItem('chisel-bar-mode', mode);
+    localStorage.setItem('pr-bar-mode', mode);
     toolbar.classList.remove('mode-bottom', 'mode-left');
     toolbar.classList.add('mode-' + mode);
     // Update icon

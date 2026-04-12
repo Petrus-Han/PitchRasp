@@ -1,7 +1,7 @@
 {
-  "name": "Chisel",
-  "short_name": "Chisel",
-  "description": "Offline visual HTML editor",
+  "name": "PitchRasp",
+  "short_name": "PitchRasp",
+  "description": "Precision finishing tool for PitchPilot presentations",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
