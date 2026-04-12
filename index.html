@@ -493,7 +493,8 @@ html, body {
     if (isTextLike(selectedElement)) {
       fontSizeDisplay.textContent = getFontSize(selectedElement);
     } else {
-      fontSizeDisplay.textContent = getPercentOfParent(selectedElement) + '%';
+      var r = selectedElement.getBoundingClientRect();
+      fontSizeDisplay.textContent = Math.round(r.width);
     }
   }
 
@@ -589,32 +590,24 @@ html, body {
     exec(cmdCopy(selectedElement));
   }
 
-  // ========== Scale element (percentage of parent) ==========
-  var SIZE_STEP = 5; // 5% per click
-
-  function getPercentOfParent(el) {
-    var parent = el.parentNode;
-    if (!parent || parent === getDoc().body || parent === getDoc().documentElement) {
-      return 100; // top-level, treat as 100%
-    }
-    var pw = parent.getBoundingClientRect().width;
-    var ew = el.getBoundingClientRect().width;
-    if (pw <= 0) return 100;
-    return Math.round(ew / pw * 100);
-  }
+  // ========== Scale element (width/height + max-width:100%) ==========
+  var SIZE_STEP = 0.05; // 5% per click
 
   function scaleElement(el, direction) {
-    var curPct = getPercentOfParent(el);
-    var newPct = Math.max(10, Math.min(100, curPct + SIZE_STEP * direction));
-    if (newPct === curPct) return;
+    var cs = getWin().getComputedStyle(el);
+    var curW = parseFloat(cs.width);
+    var curH = parseFloat(cs.height);
+    var factor = 1 + SIZE_STEP * direction;
+    var newW = Math.max(20, Math.round(curW * factor));
+    var newH = Math.max(20, Math.round(curH * factor));
 
     var oldW = el.style.width || '';
+    var oldH = el.style.height || '';
     var oldMaxW = el.style.maxWidth || '';
-    var newW = newPct + '%';
 
     exec({
-      execute: function() { el.style.width = newW; el.style.maxWidth = '100%'; },
-      undo: function() { el.style.width = oldW; el.style.maxWidth = oldMaxW; }
+      execute: function() { el.style.width = newW + 'px'; el.style.height = newH + 'px'; el.style.maxWidth = '100%'; },
+      undo: function() { el.style.width = oldW; el.style.height = oldH; el.style.maxWidth = oldMaxW; }
     });
   }
 
