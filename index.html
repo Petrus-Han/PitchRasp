@@ -801,7 +801,24 @@ html, body {
 
   function exportPDF() {
     if (!fileLoaded) return;
-    getWin().focus(); getWin().print();
+    var doc = getDoc();
+    // Inject print styles to ensure full content prints
+    var printStyle = doc.createElement('style');
+    printStyle.setAttribute('data-chisel-print', 'true');
+    printStyle.textContent = '@media print { html, body { height: auto !important; overflow: visible !important; } }';
+    doc.head.appendChild(printStyle);
+    // Temporarily expand iframe to full content height
+    var body = doc.body;
+    var fullH = body.scrollHeight;
+    iframe.style.height = fullH + 'px';
+    getWin().focus();
+    getWin().print();
+    // Restore after print dialog closes
+    setTimeout(function() {
+      iframe.style.height = '100%';
+      var ps = doc.querySelector('style[data-chisel-print]');
+      if (ps) ps.remove();
+    }, 1000);
   }
 
   // ========== Iframe listeners ==========
