@@ -721,9 +721,7 @@ html, body {
     style.setAttribute('data-chisel', 'true');
     style.textContent =
       '*:not(html):not(head):not(body):not(script):not(style):not(link):not(meta) { cursor: pointer !important; transition: outline 0.15s; }' +
-      '*:not(html):not(head):not(body):not(script):not(style):not(link):not(meta):hover { background-color: rgba(0,51,255,0.02) !important; }' +
-      '[contenteditable="true"] { cursor: text !important; outline: 2px solid rgba(0,51,255,0.4) !important; outline-offset: 3px; }' +
-      '[contenteditable="true"]:hover { background-color: transparent !important; }';
+      '[contenteditable="true"] { cursor: text !important; outline: 2px solid rgba(0,51,255,0.4) !important; outline-offset: 3px; }';
     doc.head.appendChild(style);
   }
 
