@@ -224,15 +224,20 @@ html, body {
 /* ========== File input ========== */
 #file-input { display: none; }
 
-/* ========== Resize handles (for shapes) ========== */
+/* ========== Resize handles ========== */
 .resize-handle {
-  position: absolute; width: 8px; height: 8px; background: var(--resize-handle);
-  border: 1px solid #fff; border-radius: 2px; cursor: nwse-resize; z-index: 50;
+  position: fixed; width: 8px; height: 8px; background: var(--resize-handle);
+  border: 1px solid #fff; border-radius: 2px; z-index: 50;
   pointer-events: auto;
 }
+.resize-handle.nw { cursor: nwse-resize; }
+.resize-handle.n  { cursor: ns-resize; }
+.resize-handle.ne { cursor: nesw-resize; }
+.resize-handle.e  { cursor: ew-resize; }
 .resize-handle.se { cursor: nwse-resize; }
-.resize-handle.e { cursor: ew-resize; }
-.resize-handle.s { cursor: ns-resize; }
+.resize-handle.s  { cursor: ns-resize; }
+.resize-handle.sw { cursor: nesw-resize; }
+.resize-handle.w  { cursor: ew-resize; }
 
 /* ========== Scrollbar ========== */
 ::-webkit-scrollbar { width: 4px; }
@@ -599,7 +604,7 @@ html, body {
     exec(cmdCopy(selectedElement));
   }
 
-  // ========== Element Resize ==========
+  // ========== Element Resize (8 handles) ==========
   var resizeHandles = [];
   var resizing = false;
 
@@ -608,84 +613,125 @@ html, body {
     resizeHandles = [];
   }
 
-  function showResizeHandles(el) {
+  // Handle positions: [name, xFactor, yFactor]
+  var HANDLE_POS = [
+    ['nw', 0, 0], ['n', 0.5, 0], ['ne', 1, 0],
+    ['w', 0, 0.5],                ['e', 1, 0.5],
+    ['sw', 0, 1], ['s', 0.5, 1], ['se', 1, 1]
+  ];
+
+  function positionHandles(el) {
     var rect = el.getBoundingClientRect();
-    var iframeRect = iframe.getBoundingClientRect();
-
-    var handle = document.createElement('div');
-    handle.className = 'resize-handle se';
-    handle.style.position = 'fixed';
-    handle.style.left = (iframeRect.left + rect.right - 4) + 'px';
-    handle.style.top = (iframeRect.top + rect.bottom - 4) + 'px';
-    document.body.appendChild(handle);
-    resizeHandles.push(handle);
-
-    handle.addEventListener('mousedown', function(e) {
-      e.preventDefault(); e.stopPropagation();
-      resizing = true;
-      var startX = e.clientX, startY = e.clientY;
-      var tag = el.tagName.toLowerCase();
-      var svgEl = isSvg(el);
-      var startRect = el.getBoundingClientRect();
-      var oldW, oldH, oldStyleW, oldStyleH;
-
-      if (svgEl) {
-        if (tag === 'circle') { oldW = parseFloat(el.getAttribute('r')) || 50; }
-        else if (tag === 'ellipse') { oldW = parseFloat(el.getAttribute('rx')) || 50; oldH = parseFloat(el.getAttribute('ry')) || 50; }
-        else { oldW = parseFloat(el.getAttribute('width')) || startRect.width; oldH = parseFloat(el.getAttribute('height')) || startRect.height; }
-      } else {
-        oldStyleW = el.style.width || '';
-        oldStyleH = el.style.height || '';
-        oldW = startRect.width;
-        oldH = startRect.height;
-      }
-
-      function onMove(ev) {
-        var dx = ev.clientX - startX, dy = ev.clientY - startY;
-        if (svgEl) {
-          if (tag === 'circle') { el.setAttribute('r', Math.max(5, oldW + Math.max(dx, dy) / 2)); }
-          else if (tag === 'ellipse') { el.setAttribute('rx', Math.max(5, oldW + dx / 2)); el.setAttribute('ry', Math.max(5, oldH + dy / 2)); }
-          else { el.setAttribute('width', Math.max(10, oldW + dx)); el.setAttribute('height', Math.max(10, oldH + dy)); }
-        } else {
-          el.style.width = Math.max(20, oldW + dx) + 'px';
-          el.style.height = Math.max(20, oldH + dy) + 'px';
-        }
-        var nr = el.getBoundingClientRect();
-        handle.style.left = (iframeRect.left + nr.right - 4) + 'px';
-        handle.style.top = (iframeRect.top + nr.bottom - 4) + 'px';
-        applySelectionStyle(el);
-      }
-
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        resizing = false;
-        // Undo commands
-        if (svgEl) {
-          if (tag === 'circle') { var nr = parseFloat(el.getAttribute('r')); if (nr !== oldW) exec(cmdResize(el, 'r', oldW, nr)); }
-          else if (tag === 'ellipse') {
-            var nrx = parseFloat(el.getAttribute('rx')), nry = parseFloat(el.getAttribute('ry'));
-            if (nrx !== oldW) exec(cmdResize(el, 'rx', oldW, nrx));
-            if (nry !== oldH) exec(cmdResize(el, 'ry', oldH, nry));
-          } else {
-            var nw = parseFloat(el.getAttribute('width')), nh = parseFloat(el.getAttribute('height'));
-            if (nw !== oldW) exec(cmdResize(el, 'width', oldW, nw));
-            if (nh !== oldH) exec(cmdResize(el, 'height', oldH, nh));
-          }
-        } else {
-          var newW = el.style.width, newH = el.style.height;
-          if (newW !== oldStyleW || newH !== oldStyleH) {
-            exec({
-              execute: function() { el.style.width = newW; el.style.height = newH; },
-              undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; }
-            });
-          }
-        }
-      }
-
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+    var ir = iframe.getBoundingClientRect();
+    resizeHandles.forEach(function(h, i) {
+      var pos = HANDLE_POS[i];
+      h.style.left = (ir.left + rect.left + rect.width * pos[1] - 4) + 'px';
+      h.style.top = (ir.top + rect.top + rect.height * pos[2] - 4) + 'px';
     });
+  }
+
+  function showResizeHandles(el) {
+    var svgEl = isSvg(el);
+    var tag = el.tagName.toLowerCase();
+
+    HANDLE_POS.forEach(function(pos) {
+      var h = document.createElement('div');
+      h.className = 'resize-handle ' + pos[0];
+      document.body.appendChild(h);
+      resizeHandles.push(h);
+
+      h.addEventListener('mousedown', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        resizing = true;
+        var startX = e.clientX, startY = e.clientY;
+        var startRect = el.getBoundingClientRect();
+        var dir = pos[0];
+
+        // Save old values
+        var oldStyleW = el.style.width || '', oldStyleH = el.style.height || '';
+        var oldStyleML = el.style.marginLeft || '', oldStyleMT = el.style.marginTop || '';
+        var origW = startRect.width, origH = startRect.height;
+
+        // SVG old values
+        var oldSvgW, oldSvgH;
+        if (svgEl) {
+          if (tag === 'circle') { oldSvgW = parseFloat(el.getAttribute('r')) || 50; }
+          else if (tag === 'ellipse') { oldSvgW = parseFloat(el.getAttribute('rx')) || 50; oldSvgH = parseFloat(el.getAttribute('ry')) || 50; }
+          else { oldSvgW = parseFloat(el.getAttribute('width')) || origW; oldSvgH = parseFloat(el.getAttribute('height')) || origH; }
+        }
+
+        function onMove(ev) {
+          var dx = ev.clientX - startX, dy = ev.clientY - startY;
+          // Determine which axes to resize based on handle direction
+          var resizeL = dir.indexOf('w') >= 0;
+          var resizeR = dir.indexOf('e') >= 0;
+          var resizeT = dir.indexOf('n') >= 0;
+          var resizeB = dir.indexOf('s') >= 0;
+
+          var newW = origW, newH = origH;
+          if (resizeR) newW = origW + dx;
+          if (resizeL) newW = origW - dx;
+          if (resizeB) newH = origH + dy;
+          if (resizeT) newH = origH - dy;
+          newW = Math.max(20, newW);
+          newH = Math.max(20, newH);
+
+          if (svgEl) {
+            if (tag === 'circle') {
+              var delta = resizeR || resizeB ? Math.max(dx, dy) : -Math.max(-dx, -dy);
+              el.setAttribute('r', Math.max(5, oldSvgW + delta / 2));
+            } else if (tag === 'ellipse') {
+              var ddx = resizeR ? dx : (resizeL ? -dx : 0);
+              var ddy = resizeB ? dy : (resizeT ? -dy : 0);
+              el.setAttribute('rx', Math.max(5, oldSvgW + ddx / 2));
+              el.setAttribute('ry', Math.max(5, (oldSvgH || oldSvgW) + ddy / 2));
+            } else {
+              el.setAttribute('width', Math.max(10, resizeR ? oldSvgW + dx : oldSvgW - dx));
+              el.setAttribute('height', Math.max(10, resizeB ? oldSvgH + dy : oldSvgH - dy));
+            }
+          } else {
+            el.style.width = newW + 'px';
+            el.style.height = newH + 'px';
+            // Shift position for top/left handles
+            if (resizeL) el.style.marginLeft = (parseFloat(oldStyleML) || 0) + (origW - newW) + 'px';
+            if (resizeT) el.style.marginTop = (parseFloat(oldStyleMT) || 0) + (origH - newH) + 'px';
+          }
+          positionHandles(el);
+          applySelectionStyle(el);
+        }
+
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          resizing = false;
+          // Build undo
+          if (svgEl) {
+            if (tag === 'circle') { var nr = parseFloat(el.getAttribute('r')); if (nr !== oldSvgW) exec(cmdResize(el, 'r', oldSvgW, nr)); }
+            else if (tag === 'ellipse') {
+              var nrx = parseFloat(el.getAttribute('rx')), nry = parseFloat(el.getAttribute('ry'));
+              if (nrx !== oldSvgW) exec(cmdResize(el, 'rx', oldSvgW, nrx));
+              if (nry !== (oldSvgH || oldSvgW)) exec(cmdResize(el, 'ry', oldSvgH || oldSvgW, nry));
+            } else {
+              var nw2 = parseFloat(el.getAttribute('width')), nh2 = parseFloat(el.getAttribute('height'));
+              if (nw2 !== oldSvgW) exec(cmdResize(el, 'width', oldSvgW, nw2));
+              if (nh2 !== oldSvgH) exec(cmdResize(el, 'height', oldSvgH, nh2));
+            }
+          } else {
+            var fW = el.style.width, fH = el.style.height;
+            var fML = el.style.marginLeft, fMT = el.style.marginTop;
+            if (fW !== oldStyleW || fH !== oldStyleH || fML !== oldStyleML || fMT !== oldStyleMT) {
+              exec({
+                execute: function() { el.style.width = fW; el.style.height = fH; el.style.marginLeft = fML; el.style.marginTop = fMT; },
+                undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; el.style.marginLeft = oldStyleML; el.style.marginTop = oldStyleMT; }
+              });
+            }
+          }
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+    positionHandles(el);
   }
 
   // ========== Drag to reorder ==========
@@ -835,7 +881,7 @@ html, body {
     // Track scroll for resize handles
     doc.addEventListener('scroll', function() {
       if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-        clearResizeHandles(); showResizeHandles(selectedElement);
+        if (resizeHandles.length) positionHandles(selectedElement); else showResizeHandles(selectedElement);
       }
     });
   }
@@ -898,7 +944,7 @@ html, body {
   // Window resize — update resize handles
   window.addEventListener('resize', function() {
     if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-      clearResizeHandles(); showResizeHandles(selectedElement);
+      if (resizeHandles.length) positionHandles(selectedElement); else showResizeHandles(selectedElement);
     }
   });
 
