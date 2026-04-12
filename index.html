@@ -31,7 +31,7 @@
   --accent: #0033FF;
   --selection-bar: rgba(0,51,255,0.35);
   --drop-line: #0033FF;
-  --clock-color: #ccc;
+
   --swatch-border: rgba(0,0,0,0.12);
   --danger: #cc4444;
   --danger-hover-bg: #cc4444;
@@ -60,7 +60,7 @@
   --accent: #4d7aff;
   --selection-bar: rgba(77,122,255,0.5);
   --drop-line: #4d7aff;
-  --clock-color: #555;
+
   --swatch-border: rgba(255,255,255,0.15);
   --danger: #e05555;
   --danger-hover-bg: #e05555;
@@ -80,19 +80,65 @@ html, body {
   overflow: hidden;
 }
 
-/* ========== Clock ========== */
-.clock {
+/* ========== Install banner ========== */
+.install-banner {
   position: fixed;
-  top: 20px;
-  right: 24px;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 20px;
+  background: var(--bar-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--bar-border);
+  border-radius: 12px;
+  box-shadow: var(--bar-shadow);
+  z-index: 300;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.install-banner.show { transform: translateX(-50%) translateY(0); }
+
+.install-banner p {
   font-size: 13px;
   font-weight: 300;
-  color: var(--clock-color);
-  letter-spacing: 1px;
-  z-index: 10;
-  font-variant-numeric: tabular-nums;
-  transition: color 0.3s;
+  color: var(--text-secondary);
 }
+
+.install-btn {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.install-btn:hover { opacity: 0.85; }
+
+.install-dismiss {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.install-dismiss:hover { background: var(--btn-hover); color: var(--text); }
+.install-dismiss svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.5; }
 
 /* ========== Canvas ========== */
 .canvas {
@@ -477,8 +523,12 @@ html, body {
 <body>
 <input type="file" id="file-input" accept=".html,.htm">
 
-<!-- Clock -->
-<div class="clock" id="clock"></div>
+<!-- Install banner -->
+<div class="install-banner" id="install-banner">
+  <p data-i18n="installHint">Use offline as an app</p>
+  <button class="install-btn" id="install-btn" data-i18n="install">Install</button>
+  <button class="install-dismiss" id="install-dismiss"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+</div>
 
 <!-- Canvas -->
 <div class="canvas" id="canvas-area">
@@ -500,6 +550,7 @@ html, body {
   <!-- File -->
   <button class="bb" id="btn-open" title="Open"><svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg></button>
   <button class="bb" id="btn-save" title="Save"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
+  <button class="bb" id="btn-pdf" title="Export PDF"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button>
   <div class="bb-divider"></div>
 
   <!-- Undo/Redo -->
@@ -622,7 +673,9 @@ html, body {
       remove: 'Remove',
       done: 'Done',
       hintSelect: 'Click to select, double-click to edit',
-      hintDrag: 'Drag to reorder'
+      hintDrag: 'Drag to reorder',
+      installHint: 'Use offline as an app',
+      install: 'Install'
     },
     zh: {
       emptyTitle: '\u5F00\u59CB\u7F16\u8F91',
@@ -637,7 +690,9 @@ html, body {
       remove: '\u5220\u9664',
       done: '\u5B8C\u6210',
       hintSelect: '\u70B9\u51FB\u9009\u62E9\uFF0C\u53CC\u51FB\u7F16\u8F91',
-      hintDrag: '\u62D6\u62FD\u6392\u5E8F'
+      hintDrag: '\u62D6\u62FD\u6392\u5E8F',
+      installHint: '\u79BB\u7EBF\u4F7F\u7528',
+      install: '\u5B89\u88C5'
     }
   };
 
@@ -666,17 +721,38 @@ html, body {
       : '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
   }
 
-  // ========== Clock ==========
-  var clockEl = document.getElementById('clock');
-  function updateClock() {
-    var now = new Date();
-    var h = String(now.getHours()).padStart(2, '0');
-    var m = String(now.getMinutes()).padStart(2, '0');
-    var s = String(now.getSeconds()).padStart(2, '0');
-    clockEl.textContent = h + ':' + m + ':' + s;
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
+  // ========== PWA Install ==========
+  var deferredPrompt = null;
+  var installBanner = document.getElementById('install-banner');
+  var installBtn = document.getElementById('install-btn');
+  var installDismiss = document.getElementById('install-dismiss');
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!localStorage.getItem('chisel-install-dismissed')) {
+      installBanner.classList.add('show');
+    }
+  });
+
+  installBtn.addEventListener('click', function() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function() {
+      deferredPrompt = null;
+      installBanner.classList.remove('show');
+    });
+  });
+
+  installDismiss.addEventListener('click', function() {
+    installBanner.classList.remove('show');
+    localStorage.setItem('chisel-install-dismissed', '1');
+  });
+
+  window.addEventListener('appinstalled', function() {
+    installBanner.classList.remove('show');
+    deferredPrompt = null;
+  });
 
   // ========== State ==========
   var fileLoaded = false;
@@ -1003,6 +1079,14 @@ html, body {
     URL.revokeObjectURL(url);
   }
 
+  // ========== Export PDF ==========
+  function exportPDF() {
+    if (!fileLoaded) return;
+    var win = iframe.contentWindow;
+    win.focus();
+    win.print();
+  }
+
   // ========== Iframe listeners ==========
   function setupIframeListeners() {
     var doc = getDoc();
@@ -1183,6 +1267,7 @@ html, body {
     if (fileInput.files.length > 0) { openFile(fileInput.files[0]); fileInput.value = ''; }
   });
   btnSave.addEventListener('click', saveFile);
+  document.getElementById('btn-pdf').addEventListener('click', exportPDF);
 
   // Undo/Redo
   btnUndo.addEventListener('click', undo);
