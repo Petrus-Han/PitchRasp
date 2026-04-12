@@ -224,28 +224,7 @@ html, body {
 /* ========== File input ========== */
 #file-input { display: none; }
 
-/* ========== Resize handles ========== */
-.resize-handle {
-  position: fixed; width: 10px; height: 10px;
-  background: #fff;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  z-index: 50;
-  pointer-events: auto;
-  transition: transform 0.1s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
-.resize-handle:hover { transform: scale(1.3); }
-.resize-handle.nw { cursor: nwse-resize; }
-.resize-handle.n  { cursor: ns-resize; }
-.resize-handle.ne { cursor: nesw-resize; }
-.resize-handle.e  { cursor: ew-resize; }
-.resize-handle.se { cursor: nwse-resize; }
-.resize-handle.s  { cursor: ns-resize; }
-.resize-handle.sw { cursor: nesw-resize; }
-.resize-handle.w  { cursor: ew-resize; }
-
-/* Selection frame line (connects handles) */
+/* ========== Selection frame ========== */
 .selection-frame {
   position: fixed; z-index: 49; pointer-events: none;
   border: 1.5px solid var(--accent);
@@ -524,19 +503,13 @@ html, body {
 
     updateSelectionFrame(el);
 
-    // Show context tools (hide color for complex SVGs)
     ctxTools.classList.add('show');
     refreshCtx();
-
-    // Show resize handles for any element (not body/html)
-    clearResizeHandles();
-    if (!PROTECTED.has(el.tagName)) showResizeHandles(el);
   }
 
   function deselect() {
     if (editingText) exitTextEdit();
     clearSelectionFrame();
-    clearResizeHandles();
     selectedElement = null;
     ctxTools.classList.remove('show');
     fontSizeDisplay.textContent = '--';
@@ -544,7 +517,13 @@ html, body {
 
   function refreshCtx() {
     if (!selectedElement) return;
-    fontSizeDisplay.textContent = isSvg(selectedElement) ? '--' : getFontSize(selectedElement);
+    if (isTextLike(selectedElement)) {
+      fontSizeDisplay.textContent = getFontSize(selectedElement);
+    } else {
+      // Show width for containers/shapes
+      var r = selectedElement.getBoundingClientRect();
+      fontSizeDisplay.textContent = Math.round(r.width);
+    }
   }
 
   // ========== Inline text editing ==========
@@ -601,22 +580,35 @@ html, body {
     }
   }
 
-  // ========== Font size ==========
-  function changeFontSize(delta) {
-    if (!selectedElement || isSvg(selectedElement)) return;
+  // ========== +/- buttons: font size OR element scale ==========
+  function isTextLike(el) {
+    // Elements that primarily contain text — change font size
+    if (isSvg(el)) return false;
+    var tag = el.tagName.toLowerCase();
+    return ['h1','h2','h3','h4','h5','h6','p','span','a','li','td','th','label','button','em','strong','b','i','u','small','big','sub','sup','code','pre','blockquote','figcaption','dt','dd'].indexOf(tag) >= 0;
+  }
+
+  function handlePlusMinus(delta) {
+    if (!selectedElement) return;
     var el = selectedElement;
-    var cur = getFontSize(el);
-    var nv = Math.max(8, Math.min(200, cur + delta));
-    if (nv === cur) return;
-    exec(cmdFontSize(el, el.style.fontSize || '', nv));
-    fontSizeDisplay.textContent = nv;
+    if (isTextLike(el)) {
+      // Font size mode
+      var cur = getFontSize(el);
+      var nv = Math.max(8, Math.min(200, cur + delta));
+      if (nv === cur) return;
+      exec(cmdFontSize(el, el.style.fontSize || '', nv));
+      refreshCtx();
+    } else {
+      // Scale mode
+      scaleElement(el, delta > 0 ? 1 : -1);
+      refreshCtx();
+    }
   }
 
   // ========== Delete / Copy ==========
   function deleteSelected() {
     if (!selectedElement || PROTECTED.has(selectedElement.tagName)) return;
     var el = selectedElement;
-    clearResizeHandles();
     exec(cmdDelete(el));
     deselect();
   }
@@ -626,140 +618,50 @@ html, body {
     exec(cmdCopy(selectedElement));
   }
 
-  // ========== Element Resize (8 handles) ==========
-  var resizeHandles = [];
-  var resizing = false;
+  // ========== Scale element (via +/- buttons) ==========
+  var SCALE_STEP = 0.05; // 5% per click
 
-  function clearResizeHandles() {
-    resizeHandles.forEach(function(h) { if (h.parentNode) h.parentNode.removeChild(h); });
-    resizeHandles = [];
-  }
-
-  // Handle positions: [name, xFactor, yFactor]
-  var HANDLE_POS = [
-    ['nw', 0, 0], ['n', 0.5, 0], ['ne', 1, 0],
-    ['w', 0, 0.5],                ['e', 1, 0.5],
-    ['sw', 0, 1], ['s', 0.5, 1], ['se', 1, 1]
-  ];
-
-  function positionHandles(el) {
-    var rect = el.getBoundingClientRect();
-    var ir = iframe.getBoundingClientRect();
-    resizeHandles.forEach(function(h, i) {
-      var pos = HANDLE_POS[i];
-      h.style.left = (ir.left + rect.left + rect.width * pos[1] - 4) + 'px';
-      h.style.top = (ir.top + rect.top + rect.height * pos[2] - 4) + 'px';
-    });
-  }
-
-  function showResizeHandles(el) {
-    var svgEl = isSvg(el);
+  function scaleElement(el, direction) {
+    // direction: 1 = bigger, -1 = smaller
+    var factor = 1 + SCALE_STEP * direction;
     var tag = el.tagName.toLowerCase();
+    var svgEl = isSvg(el);
 
-    HANDLE_POS.forEach(function(pos) {
-      var h = document.createElement('div');
-      h.className = 'resize-handle ' + pos[0];
-      document.body.appendChild(h);
-      resizeHandles.push(h);
-
-      h.addEventListener('mousedown', function(e) {
-        e.preventDefault(); e.stopPropagation();
-        resizing = true;
-        var startX = e.clientX, startY = e.clientY;
-        var startRect = el.getBoundingClientRect();
-        var dir = pos[0];
-
-        // Save old values
-        var oldStyleW = el.style.width || '', oldStyleH = el.style.height || '';
-        var oldStyleML = el.style.marginLeft || '', oldStyleMT = el.style.marginTop || '';
-        var origW = startRect.width, origH = startRect.height;
-
-        // SVG old values
-        var oldSvgW, oldSvgH;
-        if (svgEl) {
-          if (tag === 'circle') { oldSvgW = parseFloat(el.getAttribute('r')) || 50; }
-          else if (tag === 'ellipse') { oldSvgW = parseFloat(el.getAttribute('rx')) || 50; oldSvgH = parseFloat(el.getAttribute('ry')) || 50; }
-          else { oldSvgW = parseFloat(el.getAttribute('width')) || origW; oldSvgH = parseFloat(el.getAttribute('height')) || origH; }
-        }
-
-        function onMove(ev) {
-          var dx = ev.clientX - startX, dy = ev.clientY - startY;
-          // Determine which axes to resize based on handle direction
-          var resizeL = dir.indexOf('w') >= 0;
-          var resizeR = dir.indexOf('e') >= 0;
-          var resizeT = dir.indexOf('n') >= 0;
-          var resizeB = dir.indexOf('s') >= 0;
-
-          var newW = origW, newH = origH;
-          if (resizeR) newW = origW + dx;
-          if (resizeL) newW = origW - dx;
-          if (resizeB) newH = origH + dy;
-          if (resizeT) newH = origH - dy;
-          newW = Math.max(20, newW);
-          newH = Math.max(20, newH);
-
-          if (svgEl) {
-            if (tag === 'circle') {
-              var delta = resizeR || resizeB ? Math.max(dx, dy) : -Math.max(-dx, -dy);
-              el.setAttribute('r', Math.max(5, oldSvgW + delta / 2));
-            } else if (tag === 'ellipse') {
-              var ddx = resizeR ? dx : (resizeL ? -dx : 0);
-              var ddy = resizeB ? dy : (resizeT ? -dy : 0);
-              el.setAttribute('rx', Math.max(5, oldSvgW + ddx / 2));
-              el.setAttribute('ry', Math.max(5, (oldSvgH || oldSvgW) + ddy / 2));
-            } else {
-              el.setAttribute('width', Math.max(10, resizeR ? oldSvgW + dx : oldSvgW - dx));
-              el.setAttribute('height', Math.max(10, resizeB ? oldSvgH + dy : oldSvgH - dy));
-            }
-          } else {
-            el.style.width = newW + 'px';
-            el.style.height = newH + 'px';
-            // Shift position for top/left handles
-            if (resizeL) el.style.marginLeft = (parseFloat(oldStyleML) || 0) + (origW - newW) + 'px';
-            if (resizeT) el.style.marginTop = (parseFloat(oldStyleMT) || 0) + (origH - newH) + 'px';
-          }
-          positionHandles(el);
-          updateSelectionFrame(el);
-        }
-
-        function onUp() {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          resizing = false;
-          // Single undo command for the entire resize operation
-          if (svgEl) {
-            var snapshot = {};
-            if (tag === 'circle') { snapshot.r = parseFloat(el.getAttribute('r')); }
-            else if (tag === 'ellipse') { snapshot.rx = parseFloat(el.getAttribute('rx')); snapshot.ry = parseFloat(el.getAttribute('ry')); }
-            else { snapshot.width = parseFloat(el.getAttribute('width')); snapshot.height = parseFloat(el.getAttribute('height')); }
-            var oldSnap = tag === 'circle' ? {r: oldSvgW} : tag === 'ellipse' ? {rx: oldSvgW, ry: oldSvgH || oldSvgW} : {width: oldSvgW, height: oldSvgH};
-            var changed = Object.keys(snapshot).some(function(k) { return snapshot[k] !== oldSnap[k]; });
-            if (changed) {
-              undoStack.push({
-                execute: function() { Object.keys(snapshot).forEach(function(k) { el.setAttribute(k, snapshot[k]); }); },
-                undo: function() { Object.keys(oldSnap).forEach(function(k) { el.setAttribute(k, oldSnap[k]); }); }
-              });
-              redoStack.length = 0;
-              updateUndoRedo();
-            }
-          } else {
-            var fW = el.style.width, fH = el.style.height;
-            var fML = el.style.marginLeft, fMT = el.style.marginTop;
-            if (fW !== oldStyleW || fH !== oldStyleH || fML !== oldStyleML || fMT !== oldStyleMT) {
-              undoStack.push({
-                execute: function() { el.style.width = fW; el.style.height = fH; el.style.marginLeft = fML; el.style.marginTop = fMT; },
-                undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; el.style.marginLeft = oldStyleML; el.style.marginTop = oldStyleMT; }
-              });
-              redoStack.length = 0;
-              updateUndoRedo();
-            }
-          }
-        }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    });
-    positionHandles(el);
+    if (svgEl) {
+      // SVG: scale attributes
+      if (tag === 'circle') {
+        var oldR = parseFloat(el.getAttribute('r')) || 50;
+        var newR = Math.max(5, Math.round(oldR * factor));
+        exec(cmdResize(el, 'r', oldR, newR));
+      } else if (tag === 'ellipse') {
+        var oldRx = parseFloat(el.getAttribute('rx')) || 50;
+        var oldRy = parseFloat(el.getAttribute('ry')) || 50;
+        var newRx = Math.max(5, Math.round(oldRx * factor));
+        var newRy = Math.max(5, Math.round(oldRy * factor));
+        exec({ execute: function() { el.setAttribute('rx', newRx); el.setAttribute('ry', newRy); },
+               undo: function() { el.setAttribute('rx', oldRx); el.setAttribute('ry', oldRy); } });
+      } else {
+        var rect = el.getBoundingClientRect();
+        var oldW = parseFloat(el.getAttribute('width')) || rect.width;
+        var oldH = parseFloat(el.getAttribute('height')) || rect.height;
+        var newW = Math.max(10, Math.round(oldW * factor));
+        var newH = Math.max(10, Math.round(oldH * factor));
+        exec({ execute: function() { el.setAttribute('width', newW); el.setAttribute('height', newH); },
+               undo: function() { el.setAttribute('width', oldW); el.setAttribute('height', oldH); } });
+      }
+    } else {
+      // HTML: scale CSS width/height proportionally
+      var cs = getWin().getComputedStyle(el);
+      var curW = parseFloat(cs.width);
+      var curH = parseFloat(cs.height);
+      var oldStyleW = el.style.width || '';
+      var oldStyleH = el.style.height || '';
+      var nW = Math.max(20, Math.round(curW * factor)) + 'px';
+      var nH = Math.max(20, Math.round(curH * factor)) + 'px';
+      exec({ execute: function() { el.style.width = nW; el.style.height = nH; },
+             undo: function() { el.style.width = oldStyleW; el.style.height = oldStyleH; } });
+    }
+    updateSelectionFrame(el);
   }
 
   // ========== Drag to reorder ==========
@@ -939,7 +841,7 @@ html, body {
     // Track scroll for resize handles
     doc.addEventListener('scroll', function() {
       if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-        updateSelectionFrame(selectedElement); if (resizeHandles.length) positionHandles(selectedElement); else showResizeHandles(selectedElement);
+        updateSelectionFrame(selectedElement);
       }
     });
 
@@ -982,8 +884,8 @@ html, body {
   });
 
   // Font size
-  document.getElementById('btn-font-up').addEventListener('click', function() { changeFontSize(2); });
-  document.getElementById('btn-font-down').addEventListener('click', function() { changeFontSize(-2); });
+  document.getElementById('btn-font-up').addEventListener('click', function() { handlePlusMinus(2); });
+  document.getElementById('btn-font-down').addEventListener('click', function() { handlePlusMinus(-2); });
 
   // Copy / Delete
   document.getElementById('btn-copy').addEventListener('click', copySelected);
@@ -1015,7 +917,7 @@ html, body {
   // Window resize — update resize handles
   window.addEventListener('resize', function() {
     if (selectedElement && !PROTECTED.has(selectedElement.tagName)) {
-      updateSelectionFrame(selectedElement); if (resizeHandles.length) positionHandles(selectedElement); else showResizeHandles(selectedElement);
+      updateSelectionFrame(selectedElement);
     }
   });
 
