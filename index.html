@@ -838,21 +838,49 @@ html, body {
   function exportPDF() {
     if (!fileLoaded) return;
     var doc = getDoc();
-    // Inject print styles to ensure full content prints
+    var ppDeck = doc.getElementById('pp-deck');
     var printStyle = doc.createElement('style');
-    printStyle.setAttribute('data-chisel-print', 'true');
-    printStyle.textContent = '@media print { html, body { height: auto !important; overflow: visible !important; } }';
+    printStyle.setAttribute('data-pr-print', 'true');
+
+    if (ppDeck) {
+      // PitchPilot deck — each .slide becomes one PDF page
+      var slides = ppDeck.querySelectorAll('.slide');
+      var isH = getWin().getComputedStyle(ppDeck).flexDirection === 'row' ||
+                ppDeck.style.display === 'flex';
+      printStyle.textContent =
+        '@media print {' +
+        '  @page { size: landscape; margin: 0; }' +
+        '  html, body { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; }' +
+        '  #pp-deck { display: block !important; overflow: visible !important; width: auto !important; height: auto !important; }' +
+        '  #pp-deck .slide { width: 100vw !important; height: 100vh !important; page-break-after: always !important; break-after: page !important; overflow: hidden !important; flex-shrink: 0; box-sizing: border-box !important; }' +
+        '  #pp-deck .slide:last-child { page-break-after: auto !important; break-after: auto !important; }' +
+        '}';
+    } else {
+      // Regular HTML — expand to full height
+      printStyle.textContent =
+        '@media print {' +
+        '  html, body { height: auto !important; overflow: visible !important; }' +
+        '}';
+    }
+
     doc.head.appendChild(printStyle);
-    // Temporarily expand iframe to full content height
+
+    // Expand iframe for print
     var body = doc.body;
-    var fullH = body.scrollHeight;
-    iframe.style.height = fullH + 'px';
+    if (ppDeck) {
+      var slideCount = ppDeck.querySelectorAll('.slide').length;
+      iframe.style.height = (slideCount * window.innerHeight) + 'px';
+    } else {
+      iframe.style.height = body.scrollHeight + 'px';
+    }
+
     getWin().focus();
     getWin().print();
-    // Restore after print dialog closes
+
+    // Restore after print
     setTimeout(function() {
       iframe.style.height = '100%';
-      var ps = doc.querySelector('style[data-chisel-print]');
+      var ps = doc.querySelector('style[data-pr-print]');
       if (ps) ps.remove();
     }, 1000);
   }
