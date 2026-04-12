@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Editor</title>
+<style>
+/* ========== CSS Custom Properties ========== */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e8e8e8;
+  --bg-hover: #ebebeb;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555555;
+  --text-muted: #888888;
+  --border-color: #d0d0d0;
+  --accent: #0033FF;
+  --accent-hover: #0026cc;
+  --selection-bg: #0033FF20;
+  --toolbar-bg: #fafafa;
+  --panel-bg: #ffffff;
+  --tree-hover: #f0f0f0;
+  --tree-selected: #e0e8ff;
+  --btn-bg: #f0f0f0;
+  --btn-hover: #e0e0e0;
+  --btn-active: #d0d0d0;
+  --input-bg: #ffffff;
+  --input-border: #cccccc;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --overlay-color: #0033FF;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252525;
+  --bg-tertiary: #333333;
+  --bg-hover: #3a3a3a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #aaaaaa;
+  --text-muted: #777777;
+  --border-color: #444444;
+  --accent: #4d7aff;
+  --accent-hover: #3d6aef;
+  --selection-bg: #4d7aff30;
+  --toolbar-bg: #2a2a2a;
+  --panel-bg: #1e1e1e;
+  --tree-hover: #333333;
+  --tree-selected: #2a3a5a;
+  --btn-bg: #333333;
+  --btn-hover: #444444;
+  --btn-active: #555555;
+  --input-bg: #2a2a2a;
+  --input-border: #555555;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --overlay-color: #4d7aff;
+}
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* ========== Layout ========== */
+#app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+#workspace {
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  overflow: hidden;
+}
+
+/* ========== Toolbar ========== */
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-group + .toolbar-group {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
+}
+
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.toolbar-btn:hover { background: var(--btn-hover); }
+.toolbar-btn:active { background: var(--btn-active); }
+.toolbar-btn:disabled { opacity: 0.4; cursor: default; }
+.toolbar-btn:disabled:hover { background: var(--btn-bg); }
+
+.toolbar-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toolbar-spacer { flex: 1; }
+
+#file-input { display: none; }
+
+/* ========== Left Panel: Element Tree ========== */
+#tree-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+#tree-panel-header {
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#tree-search {
+  margin: 6px 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+#tree-search:focus { border-color: var(--accent); }
+
+#tree-container {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+#tree-container ul {
+  list-style: none;
+  padding-left: 16px;
+}
+
+#tree-container > ul { padding-left: 8px; }
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.tree-node:hover { background: var(--tree-hover); }
+.tree-node.selected { background: var(--tree-selected); }
+
+.tree-node .tag-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tree-node .text-preview {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tree-toggle.collapsed::before { content: '\25B6'; }
+.tree-toggle.expanded::before { content: '\25BC'; }
+.tree-toggle.leaf { visibility: hidden; }
+
+.tree-node.hidden { display: none; }
+.tree-children.hidden-branch { display: none; }
+
+/* ========== Center: Canvas ========== */
+#canvas-area {
+  position: relative;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+#canvas-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+#selection-overlay {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed var(--overlay-color);
+  background: var(--selection-bg);
+  display: none;
+  z-index: 10;
+}
+
+#empty-state {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 16px;
+  gap: 12px;
+}
+
+#empty-state svg {
+  width: 48px;
+  height: 48px;
+  stroke: var(--text-muted);
+  fill: none;
+  stroke-width: 1.5;
+}
+
+#empty-state .hint { font-size: 13px; }
+
+/* ========== Right Panel: Properties ========== */
+#prop-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border-color);
+  overflow-y: auto;
+}
+
+#prop-panel-header {
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prop-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prop-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.prop-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.prop-row:last-child { margin-bottom: 0; }
+
+.prop-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.prop-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.prop-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.prop-input:focus { border-color: var(--accent); }
+
+.color-presets {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.color-preset {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.color-preset:hover { transform: scale(1.1); }
+.color-preset.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+.color-preset-black { background: #000000; }
+.color-preset-white { background: #FFFFFF; }
+.color-preset-blue { background: #0033FF; }
+
+.color-hex-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.color-hex-input span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.color-hex-input input {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+}
+
+.color-hex-input input:focus { border-color: var(--accent); }
+
+.prop-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.prop-action-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--btn-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.prop-action-btn:hover { background: var(--btn-hover); }
+
+.prop-action-btn.danger {
+  border-color: #e04040;
+  color: #e04040;
+}
+
+.prop-action-btn.danger:hover {
+  background: #e04040;
+  color: #ffffff;
+}
+
+#prop-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+#prop-content { display: none; }
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <input type="file" id="file-input" accept=".html,.htm">
+      <button class="toolbar-btn" id="btn-open" title="Open HTML file">
+        <svg viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2L5 19z"/></svg>
+        <span data-i18n="open">Open</span>
+      </button>
+      <button class="toolbar-btn" id="btn-save" disabled title="Save HTML file (Ctrl+S)">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span data-i18n="save">Save</span>
+      </button>
+    </div>
+    <div class="toolbar-group">
+      <button class="toolbar-btn" id="btn-undo" disabled title="Undo (Ctrl+Z)">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        <span data-i18n="undo">Undo</span>
+      </button>
+      <button class="toolbar-btn" id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.13-9.36L23 10"/></svg>
+        <span data-i18n="redo">Redo</span>
+      </button>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="toolbar-group">
+      <button class="toolbar-btn" id="btn-lang">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        <span id="lang-label">EN</span>
+      </button>
+      <button class="toolbar-btn" id="btn-theme">
+        <svg viewBox="0 0 24 24" id="theme-icon"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Workspace -->
+  <div id="workspace">
+    <!-- Element Tree -->
+    <div id="tree-panel">
+      <div id="tree-panel-header" data-i18n="elements">Elements</div>
+      <input type="text" id="tree-search" data-i18n-placeholder="searchElements" placeholder="Search elements...">
+      <div id="tree-container"></div>
+    </div>
+
+    <!-- Canvas -->
+    <div id="canvas-area">
+      <iframe id="canvas-iframe"></iframe>
+      <div id="selection-overlay"></div>
+      <div id="empty-state">
+        <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        <span data-i18n="emptyTitle">Open an HTML file to start editing</span>
+        <span class="hint" data-i18n="emptyHint">Click "Open" or drag a file here</span>
+      </div>
+    </div>
+
+    <!-- Property Panel -->
+    <div id="prop-panel">
+      <div id="prop-panel-header" data-i18n="properties">Properties</div>
+      <div id="prop-empty" data-i18n="selectElement">Select an element to edit</div>
+      <div id="prop-content">
+        <!-- Element Info -->
+        <div class="prop-section">
+          <div class="prop-section-title" data-i18n="elementInfo">Element Info</div>
+          <div class="prop-row">
+            <span class="prop-label" data-i18n="tagName">Tag</span>
+            <span class="prop-value" id="prop-tag"></span>
+          </div>
+          <div class="prop-row" id="prop-id-row">
+            <span class="prop-label">ID</span>
+            <span class="prop-value" id="prop-id"></span>
+          </div>
+          <div class="prop-row" id="prop-class-row">
+            <span class="prop-label" data-i18n="className">Class</span>
+            <span class="prop-value" id="prop-class"></span>
+          </div>
+        </div>
+
+        <!-- Text Content -->
+        <div class="prop-section" id="prop-text-section">
+          <div class="prop-section-title" data-i18n="textContent">Text Content</div>
+          <div class="prop-row">
+            <textarea class="prop-input" id="prop-text" rows="3"></textarea>
+          </div>
+        </div>
+
+        <!-- Color -->
+        <div class="prop-section" id="prop-color-section">
+          <div class="prop-section-title" data-i18n="color">Color</div>
+          <div class="prop-row">
+            <span class="prop-label" data-i18n="textColor">Text Color</span>
+            <div class="color-presets">
+              <div class="color-preset color-preset-black" data-color="#000000" data-target="color"></div>
+              <div class="color-preset color-preset-white" data-color="#FFFFFF" data-target="color"></div>
+              <div class="color-preset color-preset-blue" data-color="#0033FF" data-target="color"></div>
+            </div>
+            <div class="color-hex-input">
+              <span>#</span>
+              <input type="text" id="color-hex" maxlength="6" placeholder="000000">
+            </div>
+          </div>
+        </div>
+
+        <!-- SVG Colors -->
+        <div class="prop-section" id="prop-svg-section" style="display:none;">
+          <div class="prop-section-title" data-i18n="svgColors">SVG Colors</div>
+          <div class="prop-row">
+            <span class="prop-label">Fill</span>
+            <div class="color-presets">
+              <div class="color-preset color-preset-black" data-color="#000000" data-target="fill"></div>
+              <div class="color-preset color-preset-white" data-color="#FFFFFF" data-target="fill"></div>
+              <div class="color-preset color-preset-blue" data-color="#0033FF" data-target="fill"></div>
+            </div>
+            <div class="color-hex-input">
+              <span>#</span>
+              <input type="text" id="fill-hex" maxlength="6" placeholder="000000">
+            </div>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Stroke</span>
+            <div class="color-presets">
+              <div class="color-preset color-preset-black" data-color="#000000" data-target="stroke"></div>
+              <div class="color-preset color-preset-white" data-color="#FFFFFF" data-target="stroke"></div>
+              <div class="color-preset color-preset-blue" data-color="#0033FF" data-target="stroke"></div>
+            </div>
+            <div class="color-hex-input">
+              <span>#</span>
+              <input type="text" id="stroke-hex" maxlength="6" placeholder="000000">
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="prop-section">
+          <div class="prop-section-title" data-i18n="actions">Actions</div>
+          <div class="prop-actions">
+            <button class="prop-action-btn" id="btn-copy" data-i18n="copy">Copy</button>
+            <button class="prop-action-btn danger" id="btn-delete" data-i18n="delete">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================================
+   Offline HTML Editor
+   ======================================== */
+
+(function() {
+  'use strict';
+
+  // ========== i18n ==========
+  const translations = {
+    en: {
+      open: 'Open',
+      save: 'Save',
+      undo: 'Undo',
+      redo: 'Redo',
+      elements: 'Elements',
+      searchElements: 'Search elements...',
+      properties: 'Properties',
+      selectElement: 'Select an element to edit',
+      elementInfo: 'Element Info',
+      tagName: 'Tag',
+      className: 'Class',
+      textContent: 'Text Content',
+      color: 'Color',
+      textColor: 'Text Color',
+      svgColors: 'SVG Colors',
+      actions: 'Actions',
+      copy: 'Copy',
+      delete: 'Delete',
+      emptyTitle: 'Open an HTML file to start editing',
+      emptyHint: 'Click "Open" or drag a file here',
+    },
+    zh: {
+      open: '\u6253\u5F00',
+      save: '\u4FDD\u5B58',
+      undo: '\u64A4\u9500',
+      redo: '\u91CD\u505A',
+      elements: '\u5143\u7D20',
+      searchElements: '\u641C\u7D22\u5143\u7D20...',
+      properties: '\u5C5E\u6027',
+      selectElement: '\u9009\u62E9\u4E00\u4E2A\u5143\u7D20\u8FDB\u884C\u7F16\u8F91',
+      elementInfo: '\u5143\u7D20\u4FE1\u606F',
+      tagName: '\u6807\u7B7E',
+      className: '\u7C7B\u540D',
+      textContent: '\u6587\u672C\u5185\u5BB9',
+      color: '\u989C\u8272',
+      textColor: '\u6587\u672C\u989C\u8272',
+      svgColors: 'SVG \u989C\u8272',
+      actions: '\u64CD\u4F5C',
+      copy: '\u590D\u5236',
+      delete: '\u5220\u9664',
+      emptyTitle: '\u6253\u5F00\u4E00\u4E2A HTML \u6587\u4EF6\u5F00\u59CB\u7F16\u8F91',
+      emptyHint: '\u70B9\u51FB\u201C\u6253\u5F00\u201D\u6216\u62D6\u653E\u6587\u4EF6\u5230\u6B64\u5904',
+    }
+  };
+
+  let currentLang = localStorage.getItem('editor-lang') || 'en';
+
+  function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('editor-lang', lang);
+    document.getElementById('lang-label').textContent = lang.toUpperCase();
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (translations[lang][key]) {
+        el.textContent = translations[lang][key];
+      }
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      if (translations[lang][key]) {
+        el.placeholder = translations[lang][key];
+      }
+    });
+  }
+
+  // ========== Theme ==========
+  let currentTheme = localStorage.getItem('editor-theme') || 'light';
+
+  function setTheme(theme) {
+    currentTheme = theme;
+    localStorage.setItem('editor-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    const icon = document.getElementById('theme-icon');
+    if (theme === 'dark') {
+      icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    } else {
+      icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+    }
+  }
+
+  // ========== State ==========
+  let fileLoaded = false;
+  let selectedElement = null;
+  let editorIdCounter = 0;
+  const undoStack = [];
+  const redoStack = [];
+
+  // ========== DOM References ==========
+  const fileInput = document.getElementById('file-input');
+  const btnOpen = document.getElementById('btn-open');
+  const btnSave = document.getElementById('btn-save');
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  const btnLang = document.getElementById('btn-lang');
+  const btnTheme = document.getElementById('btn-theme');
+  const iframe = document.getElementById('canvas-iframe');
+  const overlay = document.getElementById('selection-overlay');
+  const emptyState = document.getElementById('empty-state');
+  const treeContainer = document.getElementById('tree-container');
+  const treeSearch = document.getElementById('tree-search');
+  const propEmpty = document.getElementById('prop-empty');
+  const propContent = document.getElementById('prop-content');
+  const propTag = document.getElementById('prop-tag');
+  const propId = document.getElementById('prop-id');
+  const propIdRow = document.getElementById('prop-id-row');
+  const propClass = document.getElementById('prop-class');
+  const propClassRow = document.getElementById('prop-class-row');
+  const propText = document.getElementById('prop-text');
+  const propTextSection = document.getElementById('prop-text-section');
+  const propColorSection = document.getElementById('prop-color-section');
+  const propSvgSection = document.getElementById('prop-svg-section');
+  const colorHex = document.getElementById('color-hex');
+  const fillHex = document.getElementById('fill-hex');
+  const strokeHex = document.getElementById('stroke-hex');
+  const btnCopy = document.getElementById('btn-copy');
+  const btnDelete = document.getElementById('btn-delete');
+
+  // ========== Undo/Redo Commands ==========
+  function executeCommand(cmd) {
+    cmd.execute();
+    undoStack.push(cmd);
+    redoStack.length = 0;
+    updateUndoRedoButtons();
+    buildTree();
+  }
+
+  function undo() {
+    if (undoStack.length === 0) return;
+    const cmd = undoStack.pop();
+    cmd.undo();
+    redoStack.push(cmd);
+    updateUndoRedoButtons();
+    buildTree();
+    if (selectedElement && !getIframeDoc().contains(selectedElement)) {
+      deselectElement();
+    } else if (selectedElement) {
+      updatePropertyPanel();
+      updateOverlay();
+    }
+  }
+
+  function redo() {
+    if (redoStack.length === 0) return;
+    const cmd = redoStack.pop();
+    cmd.execute();
+    undoStack.push(cmd);
+    updateUndoRedoButtons();
+    buildTree();
+    if (selectedElement && !getIframeDoc().contains(selectedElement)) {
+      deselectElement();
+    } else if (selectedElement) {
+      updatePropertyPanel();
+      updateOverlay();
+    }
+  }
+
+  function updateUndoRedoButtons() {
+    btnUndo.disabled = undoStack.length === 0;
+    btnRedo.disabled = redoStack.length === 0;
+  }
+
+  function makeTextChangeCmd(element, oldText, newText) {
+    return {
+      execute() { element.textContent = newText; },
+      undo() { element.textContent = oldText; }
+    };
+  }
+
+  function makeColorChangeCmd(element, property, oldValue, newValue) {
+    return {
+      execute() {
+        if (property === 'fill' || property === 'stroke') {
+          element.setAttribute(property, newValue);
+        } else {
+          element.style[property] = newValue;
+        }
+      },
+      undo() {
+        if (property === 'fill' || property === 'stroke') {
+          if (oldValue) {
+            element.setAttribute(property, oldValue);
+          } else {
+            element.removeAttribute(property);
+          }
+        } else {
+          element.style[property] = oldValue;
+        }
+      }
+    };
+  }
+
+  function makeDeleteCmd(element) {
+    const parent = element.parentNode;
+    const next = element.nextSibling;
+    return {
+      execute() { parent.removeChild(element); },
+      undo() { parent.insertBefore(element, next); }
+    };
+  }
+
+  function makeCopyCmd(element) {
+    let clone = null;
+    return {
+      execute() {
+        clone = element.cloneNode(true);
+        assignEditorIds(clone);
+        element.parentNode.insertBefore(clone, element.nextSibling);
+      },
+      undo() {
+        if (clone && clone.parentNode) {
+          clone.parentNode.removeChild(clone);
+        }
+      }
+    };
+  }
+
+  // ========== Iframe Helpers ==========
+  function getIframeDoc() {
+    return iframe.contentDocument || iframe.contentWindow.document;
+  }
+
+  function assignEditorIds(root) {
+    if (root.nodeType === 1) {
+      if (!root.getAttribute('data-editor-id')) {
+        root.setAttribute('data-editor-id', 'eid-' + (++editorIdCounter));
+      }
+      for (let i = 0; i < root.children.length; i++) {
+        assignEditorIds(root.children[i]);
+      }
+    }
+  }
+
+  function getElementByEditorId(id) {
+    return getIframeDoc().querySelector('[data-editor-id="' + id + '"]');
+  }
+
+  // ========== File I/O ==========
+  function openFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      loadHTML(e.target.result);
+    };
+    reader.readAsText(file);
+  }
+
+  function loadHTML(html) {
+    const doc = getIframeDoc();
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    assignEditorIds(doc.documentElement);
+    setupIframeListeners();
+    fileLoaded = true;
+    btnSave.disabled = false;
+    emptyState.style.display = 'none';
+    undoStack.length = 0;
+    redoStack.length = 0;
+    updateUndoRedoButtons();
+    deselectElement();
+    buildTree();
+  }
+
+  function saveFile() {
+    if (!fileLoaded) return;
+    const doc = getIframeDoc();
+    const clone = doc.documentElement.cloneNode(true);
+    clone.querySelectorAll('[data-editor-id]').forEach(el => {
+      el.removeAttribute('data-editor-id');
+    });
+    const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'edited.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ========== Iframe Event Listeners ==========
+  function setupIframeListeners() {
+    const doc = getIframeDoc();
+    doc.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = e.target;
+      if (target === doc.documentElement || target === doc.body) {
+        deselectElement();
+        return;
+      }
+      selectElement(target);
+    }, true);
+
+    doc.addEventListener('scroll', function() {
+      if (selectedElement) updateOverlay();
+    });
+  }
+
+  // ========== Element Selection ==========
+  function selectElement(el) {
+    if (!el || el.nodeType !== 1) return;
+    selectedElement = el;
+    updateOverlay();
+    updatePropertyPanel();
+    highlightTreeNode(el.getAttribute('data-editor-id'));
+  }
+
+  function deselectElement() {
+    selectedElement = null;
+    overlay.style.display = 'none';
+    propEmpty.style.display = 'block';
+    propContent.style.display = 'none';
+    clearTreeSelection();
+  }
+
+  function updateOverlay() {
+    if (!selectedElement || !getIframeDoc().contains(selectedElement)) {
+      overlay.style.display = 'none';
+      return;
+    }
+    const rect = selectedElement.getBoundingClientRect();
+    const iframeRect = iframe.getBoundingClientRect();
+    const canvasRect = document.getElementById('canvas-area').getBoundingClientRect();
+    overlay.style.display = 'block';
+    overlay.style.left = (iframeRect.left - canvasRect.left + rect.left) + 'px';
+    overlay.style.top = (iframeRect.top - canvasRect.top + rect.top) + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
+
+  // ========== Property Panel ==========
+  function updatePropertyPanel() {
+    if (!selectedElement) {
+      deselectElement();
+      return;
+    }
+
+    propEmpty.style.display = 'none';
+    propContent.style.display = 'block';
+
+    const tag = selectedElement.tagName.toLowerCase();
+    propTag.textContent = '<' + tag + '>';
+
+    const elId = selectedElement.id;
+    if (elId) {
+      propIdRow.style.display = '';
+      propId.textContent = elId;
+    } else {
+      propIdRow.style.display = 'none';
+    }
+
+    const elClass = selectedElement.className;
+    const classStr = typeof elClass === 'string' ? elClass : (elClass.baseVal || '');
+    if (classStr) {
+      propClassRow.style.display = '';
+      propClass.textContent = classStr;
+    } else {
+      propClassRow.style.display = 'none';
+    }
+
+    const isSvgElement = selectedElement instanceof SVGElement;
+    const hasDirectText = hasOwnText(selectedElement);
+
+    if (hasDirectText && !isSvgElement) {
+      propTextSection.style.display = '';
+      propText.value = getDirectText(selectedElement);
+    } else {
+      propTextSection.style.display = 'none';
+    }
+
+    if (!isSvgElement) {
+      propColorSection.style.display = '';
+      propSvgSection.style.display = 'none';
+      const computed = iframe.contentWindow.getComputedStyle(selectedElement);
+      colorHex.value = rgbToHex(computed.color).replace('#', '');
+    } else {
+      propColorSection.style.display = 'none';
+      propSvgSection.style.display = '';
+      fillHex.value = (selectedElement.getAttribute('fill') || '').replace('#', '');
+      strokeHex.value = (selectedElement.getAttribute('stroke') || '').replace('#', '');
+    }
+  }
+
+  function hasOwnText(el) {
+    for (let i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.trim()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function getDirectText(el) {
+    let text = '';
+    for (let i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3) {
+        text += el.childNodes[i].textContent;
+      }
+    }
+    return text;
+  }
+
+  function setDirectText(el, newText) {
+    const textNodes = [];
+    for (let i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3) {
+        textNodes.push(el.childNodes[i]);
+      }
+    }
+    if (textNodes.length > 0) {
+      textNodes[0].textContent = newText;
+      for (let i = 1; i < textNodes.length; i++) {
+        textNodes[i].textContent = '';
+      }
+    } else {
+      el.insertBefore(document.createTextNode(newText), el.firstChild);
+    }
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb) return '#000000';
+    if (rgb.startsWith('#')) return rgb;
+    const match = rgb.match(/\d+/g);
+    if (!match || match.length < 3) return '#000000';
+    return '#' + match.slice(0, 3).map(n => {
+      const hex = parseInt(n).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+  }
+
+  // ========== Element Tree ==========
+  function buildTree() {
+    if (!fileLoaded) {
+      treeContainer.innerHTML = '';
+      return;
+    }
+    const doc = getIframeDoc();
+    const body = doc.body;
+    if (!body) return;
+
+    treeContainer.innerHTML = '';
+    const ul = document.createElement('ul');
+    buildTreeNode(body, ul);
+    treeContainer.appendChild(ul);
+  }
+
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'NOSCRIPT']);
+
+  function buildTreeNode(el, parentUl) {
+    if (el.nodeType !== 1) return;
+    if (SKIP_TAGS.has(el.tagName)) return;
+
+    const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'tree-node';
+
+    const editorId = el.getAttribute('data-editor-id');
+    row.setAttribute('data-tree-id', editorId);
+
+    const hasChildren = el.children.length > 0 &&
+      Array.from(el.children).some(c => !SKIP_TAGS.has(c.tagName));
+
+    const toggle = document.createElement('span');
+    toggle.className = 'tree-toggle ' + (hasChildren ? 'expanded' : 'leaf');
+    row.appendChild(toggle);
+
+    const tagSpan = document.createElement('span');
+    tagSpan.className = 'tag-name';
+    tagSpan.textContent = el.tagName.toLowerCase();
+    row.appendChild(tagSpan);
+
+    const directText = getDirectText(el).trim();
+    if (directText) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'text-preview';
+      textSpan.textContent = directText.length > 20 ? directText.slice(0, 20) + '\u2026' : directText;
+      row.appendChild(textSpan);
+    }
+
+    li.appendChild(row);
+
+    if (hasChildren) {
+      const childUl = document.createElement('ul');
+      childUl.className = 'tree-children';
+      for (let i = 0; i < el.children.length; i++) {
+        buildTreeNode(el.children[i], childUl);
+      }
+      li.appendChild(childUl);
+
+      toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (toggle.classList.contains('expanded')) {
+          toggle.classList.remove('expanded');
+          toggle.classList.add('collapsed');
+          childUl.classList.add('hidden-branch');
+        } else {
+          toggle.classList.remove('collapsed');
+          toggle.classList.add('expanded');
+          childUl.classList.remove('hidden-branch');
+        }
+      });
+    }
+
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const target = getElementByEditorId(editorId);
+      if (target) selectElement(target);
+    });
+
+    parentUl.appendChild(li);
+  }
+
+  function highlightTreeNode(editorId) {
+    clearTreeSelection();
+    if (!editorId) return;
+    const node = treeContainer.querySelector('[data-tree-id="' + editorId + '"]');
+    if (node) {
+      node.classList.add('selected');
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function clearTreeSelection() {
+    treeContainer.querySelectorAll('.tree-node.selected').forEach(n => n.classList.remove('selected'));
+  }
+
+  // ========== Tree Search ==========
+  treeSearch.addEventListener('input', function() {
+    const query = treeSearch.value.trim().toLowerCase();
+    const allNodes = treeContainer.querySelectorAll('.tree-node');
+
+    if (!query) {
+      allNodes.forEach(n => {
+        n.classList.remove('hidden');
+        const childUl = n.parentElement.querySelector(':scope > .tree-children');
+        if (childUl) childUl.classList.remove('hidden-branch');
+      });
+      return;
+    }
+
+    allNodes.forEach(node => {
+      const text = node.textContent.toLowerCase();
+      if (text.includes(query)) {
+        node.classList.remove('hidden');
+        let parent = node.parentElement;
+        while (parent && parent !== treeContainer) {
+          if (parent.classList.contains('tree-children')) {
+            parent.classList.remove('hidden-branch');
+          }
+          const siblingNode = parent.parentElement ? parent.parentElement.querySelector(':scope > .tree-node') : null;
+          if (siblingNode) siblingNode.classList.remove('hidden');
+          parent = parent.parentElement;
+        }
+      } else {
+        node.classList.add('hidden');
+      }
+    });
+  });
+
+  // ========== Event Handlers ==========
+
+  // Toolbar buttons
+  btnOpen.addEventListener('click', function() { fileInput.click(); });
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files.length > 0) {
+      openFile(fileInput.files[0]);
+      fileInput.value = '';
+    }
+  });
+  btnSave.addEventListener('click', saveFile);
+  btnUndo.addEventListener('click', undo);
+  btnRedo.addEventListener('click', redo);
+
+  btnLang.addEventListener('click', function() {
+    setLanguage(currentLang === 'en' ? 'zh' : 'en');
+  });
+
+  btnTheme.addEventListener('click', function() {
+    setTheme(currentTheme === 'light' ? 'dark' : 'light');
+  });
+
+  // Text editing
+  let textChangeTimer = null;
+  let textOldValue = '';
+
+  propText.addEventListener('focus', function() {
+    if (selectedElement) {
+      textOldValue = getDirectText(selectedElement);
+    }
+  });
+
+  propText.addEventListener('input', function() {
+    if (!selectedElement) return;
+    clearTimeout(textChangeTimer);
+    textChangeTimer = setTimeout(function() {
+      const newText = propText.value;
+      const oldText = textOldValue;
+      if (oldText === newText) return;
+      const el = selectedElement;
+      setDirectText(el, newText);
+      undoStack.push(makeTextChangeCmd(el, oldText, newText));
+      redoStack.length = 0;
+      updateUndoRedoButtons();
+      textOldValue = newText;
+      buildTree();
+    }, 300);
+  });
+
+  // Color presets
+  document.querySelectorAll('.color-preset').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (!selectedElement) return;
+      const color = btn.getAttribute('data-color');
+      const target = btn.getAttribute('data-target');
+      applyColor(target, color);
+    });
+  });
+
+  // Hex color inputs
+  colorHex.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const hex = '#' + colorHex.value.replace('#', '');
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        applyColor('color', hex);
+      }
+    }
+  });
+
+  fillHex.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const hex = '#' + fillHex.value.replace('#', '');
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        applyColor('fill', hex);
+      }
+    }
+  });
+
+  strokeHex.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const hex = '#' + strokeHex.value.replace('#', '');
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        applyColor('stroke', hex);
+      }
+    }
+  });
+
+  function applyColor(property, color) {
+    if (!selectedElement) return;
+    let oldValue;
+    if (property === 'fill' || property === 'stroke') {
+      oldValue = selectedElement.getAttribute(property) || '';
+    } else {
+      oldValue = selectedElement.style.color || '';
+    }
+    const cmd = makeColorChangeCmd(selectedElement, property, oldValue, color);
+    executeCommand(cmd);
+    updatePropertyPanel();
+  }
+
+  // Actions
+  btnDelete.addEventListener('click', function() {
+    if (!selectedElement) return;
+    deleteSelectedElement();
+  });
+
+  btnCopy.addEventListener('click', function() {
+    if (!selectedElement) return;
+    copySelectedElement();
+  });
+
+  function deleteSelectedElement() {
+    if (!selectedElement) return;
+    const tag = selectedElement.tagName.toLowerCase();
+    if (tag === 'html' || tag === 'head' || tag === 'body') return;
+    const cmd = makeDeleteCmd(selectedElement);
+    executeCommand(cmd);
+    deselectElement();
+  }
+
+  function copySelectedElement() {
+    if (!selectedElement) return;
+    const tag = selectedElement.tagName.toLowerCase();
+    if (tag === 'html' || tag === 'head' || tag === 'body') return;
+    const cmd = makeCopyCmd(selectedElement);
+    executeCommand(cmd);
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+
+    if (mod && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (mod && e.key === 'Z' && e.shiftKey) {
+      e.preventDefault();
+      redo();
+    } else if (mod && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      copySelectedElement();
+    } else if (mod && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      saveFile();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isEditing(e)) {
+      e.preventDefault();
+      deleteSelectedElement();
+    }
+  });
+
+  function isEditing(e) {
+    const tag = e.target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+  }
+
+  // Drag and drop
+  const canvasArea = document.getElementById('canvas-area');
+  canvasArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  canvasArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].name.match(/\.html?$/i)) {
+      openFile(files[0]);
+    }
+  });
+
+  // Window resize
+  window.addEventListener('resize', function() {
+    if (selectedElement) updateOverlay();
+  });
+
+  // ========== Init ==========
+  setTheme(currentTheme);
+  setLanguage(currentLang);
+
+})();
+</script>
+</body>
+</html>
