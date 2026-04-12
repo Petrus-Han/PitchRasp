@@ -493,9 +493,7 @@ html, body {
     if (isTextLike(selectedElement)) {
       fontSizeDisplay.textContent = getFontSize(selectedElement);
     } else {
-      // Show scale percentage
-      var s = getCurrentScale(selectedElement);
-      fontSizeDisplay.textContent = Math.round(s * 100) + '%';
+      fontSizeDisplay.textContent = getPercentOfParent(selectedElement) + '%';
     }
   }
 
@@ -591,28 +589,32 @@ html, body {
     exec(cmdCopy(selectedElement));
   }
 
-  // ========== Scale element (via +/- buttons) ==========
-  var SCALE_STEP = 0.05; // 5% per click
+  // ========== Scale element (percentage of parent) ==========
+  var SIZE_STEP = 5; // 5% per click
 
-  function getCurrentScale(el) {
-    var t = el.style.transform || '';
-    var m = t.match(/scale\(([\d.]+)\)/);
-    return m ? parseFloat(m[1]) : 1;
+  function getPercentOfParent(el) {
+    var parent = el.parentNode;
+    if (!parent || parent === getDoc().body || parent === getDoc().documentElement) {
+      return 100; // top-level, treat as 100%
+    }
+    var pw = parent.getBoundingClientRect().width;
+    var ew = el.getBoundingClientRect().width;
+    if (pw <= 0) return 100;
+    return Math.round(ew / pw * 100);
   }
 
   function scaleElement(el, direction) {
-    // Use transform: scale() — doesn't break layout or overflow parent
-    var oldScale = getCurrentScale(el);
-    var newScale = Math.max(0.1, +(oldScale + SCALE_STEP * direction).toFixed(2));
-    var oldTransform = el.style.transform || '';
-    var newTransform = oldTransform.replace(/scale\([\d.]+\)/, '').trim();
-    newTransform = (newTransform ? newTransform + ' ' : '') + 'scale(' + newScale + ')';
-    // If was scale(1), just set; if removing scale, clean up
-    if (newScale === 1) newTransform = oldTransform.replace(/\s*scale\([\d.]+\)/, '').trim();
+    var curPct = getPercentOfParent(el);
+    var newPct = Math.max(10, Math.min(100, curPct + SIZE_STEP * direction));
+    if (newPct === curPct) return;
+
+    var oldW = el.style.width || '';
+    var oldMaxW = el.style.maxWidth || '';
+    var newW = newPct + '%';
 
     exec({
-      execute: function() { el.style.transform = newTransform; },
-      undo: function() { el.style.transform = oldTransform; }
+      execute: function() { el.style.width = newW; el.style.maxWidth = '100%'; },
+      undo: function() { el.style.width = oldW; el.style.maxWidth = oldMaxW; }
     });
   }
 
