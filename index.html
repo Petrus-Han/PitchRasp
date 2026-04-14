@@ -241,6 +241,42 @@ html, body {
   <button class="install-dismiss" id="install-dismiss"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
 </div>
 
+<!-- Welcome overlay (first visit) -->
+<div id="welcome-overlay" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:var(--modal-overlay); backdrop-filter:blur(24px);
+  justify-content:center; align-items:center;
+">
+  <div style="
+    max-width:440px; padding:48px 40px; text-align:center;
+    background:var(--modal-bg); border-radius:20px;
+    box-shadow:var(--modal-shadow);
+  ">
+    <div style="font-size:36px; margin-bottom:20px; opacity:0.8;">&#9775;</div>
+    <h1 style="font-size:22px; font-weight:400; color:var(--text); margin:0 0 12px; letter-spacing:-0.3px; line-height:1.4;">
+      PitchRasp
+    </h1>
+    <p style="font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0 0 8px;">
+      A quiet companion for your presentations.
+    </p>
+    <p style="font-size:13px; color:var(--text-muted); line-height:1.7; margin:0 0 28px;">
+      Edit the decks PitchPilot creates &mdash; offline, unhurried, on your own terms.
+      <br>No account needed. Install it locally and it&rsquo;s always there.
+    </p>
+    <button id="welcome-begin" style="
+      font-family:inherit; font-size:14px; font-weight:500;
+      padding:10px 32px; border:none; border-radius:10px;
+      background:var(--accent); color:#fff; cursor:pointer;
+      letter-spacing:0.3px; transition:opacity 0.2s;
+    " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      Begin
+    </button>
+    <p style="font-size:11px; color:var(--text-muted); margin:20px 0 0; opacity:0.6;">
+      Open an HTML file to start editing
+    </p>
+  </div>
+</div>
+
 <!-- Canvas -->
 <div class="canvas" id="canvas-area">
   <iframe id="canvas-iframe"></iframe>
@@ -296,6 +332,20 @@ html, body {
 <script>
 (function() {
   'use strict';
+
+  // ========== Welcome ==========
+  (function() {
+    if (!localStorage.getItem('pr-welcomed')) {
+      var overlay = document.getElementById('welcome-overlay');
+      overlay.style.display = 'flex';
+      document.getElementById('welcome-begin').onclick = function() {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(function() { overlay.style.display = 'none'; }, 300);
+        localStorage.setItem('pr-welcomed', '1');
+      };
+    }
+  })();
 
   // ========== i18n ==========
   var T = {
